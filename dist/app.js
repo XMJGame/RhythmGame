@@ -3,7 +3,7 @@
 
   const $ = (id) => document.getElementById(id);
   const els = Object.fromEntries([
-    'audio','audioFile','projectFile','dropZone','fileCard','fileName','fileMeta','replaceAudioBtn','analyzeBtn','analysisDensity','sensitivity','sensitivityValue','analysisResult','bpmValue','beatCount','countPill','timingCalibration','bpmInput','halfBpmBtn','doubleBpmBtn','offsetInput','offsetMinusBtn','offsetPlusBtn','setOffsetBtn','previewOffsetBtn','applyTimingBtn','playBtn','playIcon','stopBtn','backBtn','forwardBtn','currentTime','durationTime','playbackRate','metronome','waveform','canvasShell','emptyWave','timelineHint','zoom','fitBtn','addBeatBtn','undoBtn','redoBtn','beatTableBody','tableEmpty','selectedLabel','inspectorFields','beatTimeInput','beatType','beatStrength','strengthValue','beatNote','deleteBeatBtn','projectName','saveProjectBtn','openProjectBtn','helpBtn','helpModal','helpCloseBtn','helpDoneBtn','exportGameCsvBtn','exportGameJsonBtn','exportBeatCsvBtn','exportBeatJsonBtn','toastRegion','progressModal','progressBar','progressText','dragHelp','laneCount','snapDivision','noteType','holdLengthWrap','holdLength','laneCanvas','laneEmpty','laneKeys','noteCount','clearNotesBtn','testModeBtn','generateChartBtn','laneModeHelp','judgementPop'
+    'audio','audioFile','projectFile','dropZone','fileCard','fileName','fileMeta','replaceAudioBtn','analyzeBtn','analysisDensity','sensitivity','sensitivityValue','analysisResult','bpmValue','beatCount','countPill','timingCalibration','bpmInput','halfBpmBtn','doubleBpmBtn','offsetInput','offsetMinusBtn','offsetPlusBtn','setOffsetBtn','previewOffsetBtn','applyTimingBtn','playBtn','playIcon','stopBtn','backBtn','forwardBtn','currentTime','durationTime','playbackRate','metronome','waveform','canvasShell','emptyWave','timelineHint','zoom','fitBtn','addBeatBtn','undoBtn','redoBtn','beatTableBody','tableEmpty','selectedLabel','inspectorFields','beatTimeInput','beatType','beatStrength','strengthValue','beatNote','deleteBeatBtn','projectName','saveProjectBtn','openProjectBtn','helpBtn','helpModal','helpCloseBtn','helpDoneBtn','exportGameCsvBtn','exportGameJsonBtn','exportBeatCsvBtn','exportBeatJsonBtn','toastRegion','progressModal','progressBar','progressText','dragHelp','chartDifficulty','difficultyHelp','laneCount','snapDivision','noteType','holdLengthWrap','holdLength','laneCanvas','laneEmpty','laneKeys','noteCount','clearNotesBtn','testModeBtn','generateChartBtn','laneModeHelp','judgementPop'
   ].map(id => [id, $(id)]));
 
   const state = {
@@ -17,6 +17,7 @@
     waveform: [],
     beats: [],
     notes: [],
+    chartDifficulty: 'standard',
     laneCount: 4,
     beatOffset: 0,
     selectedNoteId: null,
@@ -49,6 +50,11 @@
     4: ['D', 'F', 'J', 'K'],
     5: ['D', 'F', 'J', 'K', 'L'],
     6: ['S', 'D', 'F', 'J', 'K', 'L']
+  };
+  const DIFFICULTY_PRESETS = {
+    standard: { label: '标准', grid: 0, approachBeats: 8, minSeconds: 3, help: '主要节拍 · 正常下落速度' },
+    hard: { label: '困难', grid: 1, approachBeats: 6, minSeconds: 2.35, help: '每一拍 · 较快下落速度' },
+    hell: { label: '地狱', grid: 2, approachBeats: 4, minSeconds: 1.6, help: '包含半拍 · 最快下落速度' }
   };
 
   function toast(message, type = 'success') {
@@ -164,7 +170,8 @@
         zoom: state.zoom,
         snapDivision: Number(els.snapDivision.value),
         noteType: els.noteType.value,
-        holdLength: Number(els.holdLength.value)
+        holdLength: Number(els.holdLength.value),
+        chartDifficulty: state.chartDifficulty
       },
       createdWith: '节拍工坊',
       beats: state.beats.map((beat, index) => ({
@@ -788,7 +795,8 @@
 
   function laneWindow(height) {
     const judgementY = height - 48;
-    const secondsAhead = Math.max(3, beatDuration() * 8);
+    const preset = DIFFICULTY_PRESETS[state.chartDifficulty];
+    const secondsAhead = Math.max(preset.minSeconds, beatDuration() * preset.approachBeats);
     const pixelsPerSecond = (judgementY - 28) / secondsAhead;
     return { judgementY, secondsAhead, pixelsPerSecond, now: els.audio.currentTime || 0 };
   }
@@ -952,8 +960,21 @@
       const mirror = lanes - 1 - i;
       if (mirror !== i) pattern.push(mirror);
     }
+    const preset = DIFFICULTY_PRESETS[state.chartDifficulty];
+    let chartBeats = state.beats;
+    if (preset.grid) {
+      const unit = beatDuration() / preset.grid;
+      const firstTime = state.beats[0]?.time ?? state.beatOffset;
+      const lastTime = Math.min(els.audio.duration || state.audioBuffer?.duration || state.beats.at(-1).time, state.beats.at(-1).time + beatDuration());
+      chartBeats = [];
+      for (let time = firstTime, index = 0; time <= lastTime + .001; time += unit, index++) {
+        const wholeBeat = index % preset.grid === 0;
+        const barStart = wholeBeat && Math.floor(index / preset.grid) % 4 === 0;
+        chartBeats.push({ time: Number(time.toFixed(3)), type: barStart ? 'accent' : 'beat', strength: barStart ? 95 : wholeBeat ? 82 : 68 });
+      }
+    }
     state.notes = [];
-    state.beats.forEach((beat, index) => {
+    chartBeats.forEach((beat, index) => {
       const lane = pattern[index % pattern.length];
       state.notes.push({ id: makeId(), lane, time: beat.time, type: 'tap' });
       if (beat.type === 'accent' && beat.strength >= 88 && lanes >= 4) {
@@ -965,7 +986,17 @@
     state.selectedNoteId = null;
     renderAll();
     markDirty();
-    toast(`已生成 ${state.laneCount} 轨基础谱面，共 ${state.notes.length} 个音符`);
+    toast(`已生成${preset.label}谱面：${state.laneCount} 轨，共 ${state.notes.length} 个音符`);
+  }
+
+  function setChartDifficulty(value, shouldSave = true) {
+    state.chartDifficulty = DIFFICULTY_PRESETS[value] ? value : 'standard';
+    els.chartDifficulty.value = state.chartDifficulty;
+    const preset = DIFFICULTY_PRESETS[state.chartDifficulty];
+    els.generateChartBtn.textContent = `✦ 生成${preset.label}谱面`;
+    els.difficultyHelp.textContent = `${preset.label}：${preset.help}`;
+    renderLaneEditor();
+    if (shouldSave) markDirty();
   }
 
   function setLaneActive(lane) {
@@ -1212,6 +1243,7 @@
       els.laneCount.value = String(state.laneCount);
       if ([0,1,2,4].includes(Number(data.snapDivision))) els.snapDivision.value = String(data.snapDivision);
       const settings = data.settings || {};
+      setChartDifficulty(settings.chartDifficulty, false);
       if (['concise','standard','detailed'].includes(settings.analysisDensity)) els.analysisDensity.value = settings.analysisDensity;
       if (Number.isFinite(Number(settings.sensitivity))) els.sensitivity.value = String(Math.max(0, Math.min(100, Number(settings.sensitivity))));
       els.sensitivityValue.textContent = `${els.sensitivity.value}%`;
@@ -1515,6 +1547,7 @@
     markDirty();
   });
   els.snapDivision.addEventListener('change', () => { renderLaneEditor(); markDirty(); });
+  els.chartDifficulty.addEventListener('change', () => setChartDifficulty(els.chartDifficulty.value));
   els.noteType.addEventListener('change', () => els.holdLengthWrap.classList.toggle('hidden', els.noteType.value !== 'hold'));
   els.generateChartBtn.addEventListener('click', generateBaseChart);
   els.clearNotesBtn.addEventListener('click', () => {
@@ -1583,6 +1616,7 @@
       els.laneCount.value = String(state.laneCount);
       if ([0,1,2,4].includes(Number(saved.snapDivision))) els.snapDivision.value = String(saved.snapDivision);
       const settings = saved.settings || {};
+      setChartDifficulty(settings.chartDifficulty, false);
       if (['concise','standard','detailed'].includes(settings.analysisDensity)) els.analysisDensity.value = settings.analysisDensity;
       if (Number.isFinite(Number(settings.sensitivity))) els.sensitivity.value = String(Math.max(0, Math.min(100, Number(settings.sensitivity))));
       els.sensitivityValue.textContent = `${els.sensitivity.value}%`;

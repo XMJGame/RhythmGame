@@ -46,7 +46,7 @@
 
             <div class="divider"></div>
             <div class="panel-heading compact"><span>02</span><div><h2>自动找节拍</h2><p>先自动生成，再按听感微调</p></div></div>
-            <label class="select-field">结果密度
+            <label class="select-field">节拍参考密度（不是谱面难度）
               <select id="analysisDensity">
                 <option value="concise" selected>精简 · 只留主要拍（推荐）</option>
                 <option value="standard">标准 · 每一拍</option>
@@ -120,6 +120,7 @@
               <div class="lane-toolbar">
                 <div><h2>轨道谱面</h2><p>从节拍生成音符，或播放时直接按键录入</p></div>
                 <div class="lane-controls">
+                  <label>难度<select id="chartDifficulty" aria-label="生成谱面难度"><option value="standard" selected>标准</option><option value="hard">困难</option><option value="hell">地狱</option></select></label>
                   <label>轨道<select id="laneCount"><option value="2">2 轨</option><option value="3">3 轨</option><option value="4" selected>4 轨</option><option value="5">5 轨</option><option value="6">6 轨</option></select></label>
                   <label title="在轨道上点击放置音符时，自动对齐到最近的节拍网格">节拍对齐<select id="snapDivision" aria-label="音符节拍对齐"><option value="1">对齐每拍</option><option value="2" selected>对齐半拍</option><option value="4">对齐 1/4 拍</option><option value="0">自由放置</option></select></label>
                   <label>音符<select id="noteType"><option value="tap">点击</option><option value="hold">长按</option></select></label>
@@ -128,7 +129,7 @@
               </div>
               <div class="lane-stage-wrap">
                 <canvas id="laneCanvas" aria-label="游戏音符轨道编辑区"></canvas>
-                <div class="lane-empty" id="laneEmpty"><strong>还没有游戏音符</strong><span>先分析节拍，再点“一键生成基础谱面”</span></div>
+                <div class="lane-empty" id="laneEmpty"><strong>还没有游戏音符</strong><span>先分析节拍，再选择难度并生成谱面</span></div>
                 <div class="judgement-pop hidden" id="judgementPop">PERFECT</div>
               </div>
               <div class="lane-footer">
@@ -137,10 +138,10 @@
                   <span class="note-counter"><b id="noteCount">0</b> 个音符</span>
                   <button class="btn ghost small" id="clearNotesBtn" disabled>清空音符</button>
                   <button class="btn ghost small" id="testModeBtn" disabled>▷ 试玩模式</button>
-                  <button class="btn primary small" id="generateChartBtn" disabled>✦ 一键生成基础谱面</button>
+                  <button class="btn primary small" id="generateChartBtn" disabled>✦ 生成标准谱面</button>
                 </div>
               </div>
-              <div class="lane-help"><span>点击轨道添加</span><span>右键音符删除</span><span>节拍对齐：自动对齐到最近网格</span><span>空格：播放/暂停</span><span id="laneModeHelp">当前键位：D F J K</span></div>
+              <div class="lane-help"><span id="difficultyHelp">标准：主要节拍 · 正常下落速度</span><span>点击轨道添加，右键删除</span><span>空格：播放/暂停</span><span id="laneModeHelp">当前键位：D F J K</span></div>
             </section>
 
             <div class="lower-grid">
@@ -190,40 +191,45 @@
           <button class="help-close" id="helpCloseBtn" type="button" aria-label="关闭使用帮助">×</button>
         </header>
         <div class="help-body">
-          <section class="help-section" aria-labelledby="helpStartTitle">
-            <h3 id="helpStartTitle">第一次使用：按这 5 步完成一张谱</h3>
+          <nav class="help-route" aria-label="使用流程"><span class="active">1 加载与分析</span><i>→</i><span>2 校准节拍</span><i>→</i><span>3 生成与试玩</span><i>→</i><span>4 保存或导出</span></nav>
+
+          <section class="help-section help-chapter" aria-labelledby="helpStartTitle">
+            <div class="chapter-title"><b>01</b><div><h3 id="helpStartTitle">最快上手：第一次先做这 5 步</h3><p>不知道 BPM、Offset 也没关系，系统会先给出结果。</p></div></div>
             <ol class="help-steps">
-              <li><b>1</b><div><strong>加载音乐</strong><span>选择本机的 MP3、WAV、OGG 或 M4A。</span></div></li>
-              <li><b>2</b><div><strong>自动找节拍</strong><span>先用“精简”密度，结果太少再提高。</span></div></li>
-              <li><b>3</b><div><strong>试听并修正</strong><span>上方时间尺拖播放位置；下方波形选择、拖动或双击节拍。</span></div></li>
-              <li><b>4</b><div><strong>制作轨道谱面</strong><span>生成基础谱面后增删音符，也可边播放边按键录入。</span></div></li>
-              <li><b>5</b><div><strong>保存或导出</strong><span>保存工程方便下次继续；导出数据交给游戏使用。</span></div></li>
+              <li><b>1</b><div><strong>加载音乐</strong><span>选择本机 MP3、WAV、OGG 或 M4A。</span></div></li>
+              <li><b>2</b><div><strong>自动找节拍</strong><span>先选“精简”，再点分析。</span></div></li>
+              <li><b>3</b><div><strong>打开提示音试听</strong><span>鼓点不齐时，调整 BPM 或第一拍位置。</span></div></li>
+              <li><b>4</b><div><strong>选择难度并生成</strong><span>先用“标准”，生成后点击试玩。</span></div></li>
+              <li><b>5</b><div><strong>保存完整工程</strong><span>要给游戏使用时，再导出游戏谱面。</span></div></li>
             </ol>
           </section>
 
-          <div class="help-columns">
-            <section class="help-section">
-              <h3>先分清两个概念</h3>
-              <div class="concept-card"><strong><i class="dot beat-dot"></i>节拍</strong><p>音乐里规律出现的时间点，是分析和对齐音符的参考网格。它不是玩家最终要按的全部音符。</p></div>
-              <div class="concept-card"><strong><i class="dot offset-dot"></i>第一拍位置 Offset</strong><p>系统会自动估算正式节奏从哪里开始，你也可以设为当前播放位置。修改后应用，会从新的第一拍重新排列节拍，并影响后续音符吸附和基础谱面生成。</p></div>
-              <div class="concept-card"><strong><i class="dot note-dot"></i>轨道谱面</strong><p>玩家实际游玩的音符数据，包含出现时间、所在轨道，以及点击或长按类型。</p></div>
-              <div class="help-callout"><strong>“节拍对齐”是什么？</strong><p>在轨道上点击放音符时，把它吸到最近的每拍、半拍或 1/4 拍，减少手抖造成的偏差；选“自由放置”则保留点击的准确时间。</p></div>
-            </section>
-            <section class="help-section">
-              <h3>常用操作与键位</h3>
-              <dl class="shortcut-list">
-                <div><dt><kbd>空格</kbd></dt><dd>播放 / 暂停</dd></div>
-                <div><dt><kbd>T</kbd></dt><dd>在当前播放位置添加节拍</dd></div>
-                <div><dt><kbd>Ctrl</kbd> + <kbd>Z</kbd></dt><dd>撤销上一步</dd></div>
-                <div><dt><kbd>2–6 轨</kbd></dt><dd>可选不同轨道数量；当前按键会显示在轨道下方</dd></div>
-                <div><dt><kbd>右键</kbd></dt><dd>删除轨道中的音符</dd></div>
-              </dl>
-              <p class="help-note">自动分析只是起点。鼓点复杂、前奏很轻或真人演奏的歌曲可能出现误判，建议打开节拍提示音，从头试听一遍。</p>
-            </section>
-          </div>
+          <section class="help-section help-chapter">
+            <div class="chapter-title"><b>02</b><div><h3>校准节拍：先把音乐的尺子放准</h3><p>这一步决定后面的音符能不能和音乐对齐。</p></div></div>
+            <div class="concept-grid">
+              <div class="concept-card"><strong><i class="dot beat-dot"></i>BPM</strong><p>每分钟有多少拍，决定节拍之间的距离。数值不对时，越往后偏得越明显。</p></div>
+              <div class="concept-card"><strong><i class="dot offset-dot"></i>第一拍位置 Offset</strong><p>正式节奏从音乐第几秒开始。数值不对时，整首歌会一起提前或延后。</p></div>
+              <div class="concept-card"><strong><i class="dot note-dot"></i>节拍与谱面</strong><p>“节拍参考密度”只决定参考线保留多少；“谱面难度”才决定生成多少游戏音符和下落速度。</p></div>
+            </div>
+            <div class="help-callout"><strong>怎么判断结果准不准？</strong><p>打开“节拍提示音”从头听：如果从头到尾都固定早一点或晚一点，调 Offset；如果开头准、后面越来越偏，调 BPM。自动分析只是起点，复杂鼓点或真人演奏仍需要试听。</p></div>
+          </section>
 
-          <section class="help-section" aria-labelledby="helpExportTitle">
-            <h3 id="helpExportTitle">保存与导出分别是什么意思？</h3>
+          <section class="help-section help-chapter">
+            <div class="chapter-title"><b>03</b><div><h3>生成谱面与试玩：难度不是简单加速</h3><p>选择难度后点击“生成…谱面”；只切换难度不会修改现有音符。</p></div></div>
+            <div class="difficulty-grid">
+              <article><span>推荐入门</span><h4>标准</h4><p>沿用分析出的主要节拍，音符较少，正常下落速度。</p></article>
+              <article><span>节奏更满</span><h4>困难</h4><p>按每一拍生成，重拍可能出现双押，下落速度更快。</p></article>
+              <article><span>高强度</span><h4>地狱</h4><p>加入半拍音符，密度最高，下落速度最快。</p></article>
+            </div>
+            <p class="help-note strong-note">当前三档使用固定下落速度，不会在歌曲中途突然加速。中途变速属于特殊演出效果（SV），以后有明确玩法需求再单独加入更合适。</p>
+            <div class="help-columns compact-columns">
+              <div><h4>编辑与试玩</h4><p class="help-note">点击轨道添加音符，右键删除；“节拍对齐”会把手动音符吸到最近网格。点击“试玩模式”后用轨道下方显示的按键击打，空格仍然负责播放 / 暂停。</p></div>
+              <div><h4>常用快捷键</h4><dl class="shortcut-list compact"><div><dt><kbd>空格</kbd></dt><dd>播放 / 暂停</dd></div><div><dt><kbd>T</kbd></dt><dd>添加节拍</dd></div><div><dt><kbd>Ctrl</kbd> + <kbd>Z</kbd></dt><dd>撤销</dd></div><div><dt><kbd>右键</kbd></dt><dd>删除音符</dd></div></dl></div>
+            </div>
+          </section>
+
+          <section class="help-section help-chapter" aria-labelledby="helpExportTitle">
+            <div class="chapter-title"><b>04</b><div><h3 id="helpExportTitle">保存与导出：根据下一步用途选择</h3><p>继续制作选“保存工程”；接入游戏选“游戏谱面”。</p></div></div>
             <div class="export-help-grid">
               <article class="export-help-card project"><span>继续编辑</span><h4>保存完整工程 · .rhythm.json</h4><p>保存节拍、轨道音符、BPM 和编辑设置。以后用“打开工程文件”继续制作。</p><small>浏览器不会保存音乐文件本身或电脑中的绝对路径；重新打开工程时，需要再次选择原来的音乐进行关联。</small></article>
               <article class="export-help-card"><span>给游戏读取</span><h4>游戏谱面 · JSON / CSV</h4><p>导出玩家真正要按的音符。JSON 带有完整结构和元数据，通常更适合程序；CSV 与 JSON 的音符行一致，适合用表格查看和修改。</p></article>
