@@ -110,7 +110,7 @@
                 <div><h2>轨道谱面</h2><p>从节拍生成音符，或播放时直接按键录入</p></div>
                 <div class="lane-controls">
                   <label>轨道<select id="laneCount"><option value="2">2 轨</option><option value="3">3 轨</option><option value="4" selected>4 轨</option><option value="5">5 轨</option><option value="6">6 轨</option></select></label>
-                  <label>吸附<select id="snapDivision"><option value="1">每拍</option><option value="2" selected>1/2 拍</option><option value="4">1/4 拍</option><option value="0">关闭</option></select></label>
+                  <label title="在轨道上点击放置音符时，自动对齐到最近的节拍网格">节拍对齐<select id="snapDivision" aria-label="音符节拍对齐"><option value="1">对齐每拍</option><option value="2" selected>对齐半拍</option><option value="4">对齐 1/4 拍</option><option value="0">自由放置</option></select></label>
                   <label>音符<select id="noteType"><option value="tap">点击</option><option value="hold">长按</option></select></label>
                   <label id="holdLengthWrap" class="hidden">长度<select id="holdLength"><option value="1">1 拍</option><option value="2">2 拍</option><option value="4">4 拍</option></select></label>
                 </div>
@@ -129,7 +129,7 @@
                   <button class="btn primary small" id="generateChartBtn" disabled>✦ 一键生成基础谱面</button>
                 </div>
               </div>
-              <div class="lane-help"><span>点击轨道添加</span><span>右键音符删除</span><span>播放时按键实时录谱</span><span id="laneModeHelp">当前键位：D F J K</span></div>
+              <div class="lane-help"><span>点击轨道添加</span><span>右键音符删除</span><span>节拍对齐：自动对齐到最近网格</span><span>空格：播放/暂停</span><span id="laneModeHelp">当前键位：D F J K</span></div>
             </section>
 
             <div class="lower-grid">

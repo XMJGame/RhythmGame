@@ -42,9 +42,9 @@
   const RULER_HEIGHT = 30;
   const KEY_LAYOUTS = {
     2: ['D', 'K'],
-    3: ['F', 'Space', 'J'],
+    3: ['F', 'J', 'K'],
     4: ['D', 'F', 'J', 'K'],
-    5: ['D', 'F', 'Space', 'J', 'K'],
+    5: ['D', 'F', 'J', 'K', 'L'],
     6: ['S', 'D', 'F', 'J', 'K', 'L']
   };
 
@@ -709,7 +709,7 @@
         els.laneKeys.append(node);
       });
       els.laneKeys.dataset.layout = layoutSignature;
-      els.laneModeHelp.textContent = `当前键位：${keys.map(key => key === 'Space' ? '空格' : key).join(' ')}`;
+      els.laneModeHelp.textContent = `当前键位：${keys.join(' ')}`;
     }
     [...els.laneKeys.children].forEach((node, lane) => node.classList.toggle('active', state.activeLanes.has(lane)));
   }
@@ -893,7 +893,7 @@
     state.hitNotes.clear();
     els.testModeBtn.textContent = state.testMode ? '■ 退出试玩' : '▷ 试玩模式';
     els.laneCanvas.style.cursor = state.testMode ? 'default' : 'crosshair';
-    toast(state.testMode ? `试玩已开启，请使用 ${KEY_LAYOUTS[state.laneCount].map(k => k === 'Space' ? '空格' : k).join(' ')} 击打音符` : '已退出试玩模式');
+    toast(state.testMode ? `试玩已开启，请使用 ${KEY_LAYOUTS[state.laneCount].join(' ')} 击打音符，空格键暂停/继续` : '已退出试玩模式');
     renderLaneEditor();
   }
 
@@ -1137,44 +1137,67 @@
     return '\ufeff' + rows.map(row => row.map(value => `"${String(value ?? '').replace(/"/g, '""')}"`).join(',')).join('\r\n');
   }
 
+  const GAME_COLUMNS = ['index','time_ms','time_display','lane','lane_display','type','end_time_ms','duration_ms'];
+  const BEAT_COLUMNS = ['index','time_ms','time_seconds','time_display','type','strength','note'];
+
+  function gameExportRows() {
+    return state.notes.map((note, index) => ({
+      index: index + 1,
+      time_ms: Math.round(note.time * 1000),
+      time_display: formatTime(note.time),
+      lane: note.lane,
+      lane_display: note.lane + 1,
+      type: note.type,
+      end_time_ms: note.type === 'hold' ? Math.round(note.endTime * 1000) : null,
+      duration_ms: note.type === 'hold' ? Math.round((note.endTime - note.time) * 1000) : null
+    }));
+  }
+
+  function beatExportRows() {
+    return state.beats.map((beat, index) => ({
+      index: index + 1,
+      time_ms: Math.round(beat.time * 1000),
+      time_seconds: Number(beat.time.toFixed(3)),
+      time_display: formatTime(beat.time),
+      type: beat.type,
+      strength: beat.strength,
+      note: beat.note || ''
+    }));
+  }
+
+  function objectsToCsv(columns, records) {
+    return csvText([columns, ...records.map(record => columns.map(column => record[column]))]);
+  }
+
   function exportGameCsv() {
-    const rows = [
-      ['index','time_ms','time_display','lane_zero_based','lane_display','type','end_time_ms','duration_ms'],
-      ...state.notes.map((note, i) => [i + 1, Math.round(note.time * 1000), formatTime(note.time), note.lane, note.lane + 1, note.type, note.type === 'hold' ? Math.round(note.endTime * 1000) : '', note.type === 'hold' ? Math.round((note.endTime - note.time) * 1000) : ''])
-    ];
-    downloadFile(`${els.projectName.value || '谱面'}.game.csv`, csvText(rows), 'text/csv;charset=utf-8');
+    downloadFile(`${els.projectName.value || '谱面'}.game.csv`, objectsToCsv(GAME_COLUMNS, gameExportRows()), 'text/csv;charset=utf-8');
     toast('游戏谱面 CSV 已导出');
   }
 
   function exportGameJson() {
     const project = projectData();
     const data = {
-      format: 'rhythm-game-chart', version: 1, name: project.name,
-      audio: project.audio ? { file: project.audio.reference || project.audio.name, duration: project.duration } : null,
-      laneCount: project.laneCount, bpm: project.bpm, beatOffset: Math.round(project.beatOffset * 1000),
-      timeUnit: 'milliseconds',
-      notes: project.notes.map(({ time, endTime, lane, type }) => ({ t: Math.round(time * 1000), lane, type, ...(type === 'hold' ? { end: Math.round(endTime * 1000) } : {}) }))
+      format: 'rhythm-game-chart', version: 2, name: project.name,
+      audio: project.audio ? { file: project.audio.reference || project.audio.name, duration_ms: Math.round(project.duration * 1000) } : null,
+      lane_count: project.laneCount, bpm: project.bpm, beat_offset_ms: Math.round(project.beatOffset * 1000),
+      time_unit: 'milliseconds', columns: GAME_COLUMNS, notes: gameExportRows()
     };
     downloadFile(`${els.projectName.value || '谱面'}.game.json`, JSON.stringify(data, null, 2), 'application/json');
     toast('游戏 JSON 已导出，时间单位是毫秒');
   }
 
   function exportBeatCsv() {
-    const rows = [
-      ['index','time_ms','time_seconds','time_display','type','strength','note'],
-      ...state.beats.map((beat, i) => [i + 1, Math.round(beat.time * 1000), beat.time.toFixed(3), formatTime(beat.time), beat.type, beat.strength, beat.note])
-    ];
-    downloadFile(`${els.projectName.value || '节拍'}.beats.csv`, csvText(rows), 'text/csv;charset=utf-8');
+    downloadFile(`${els.projectName.value || '节拍'}.beats.csv`, objectsToCsv(BEAT_COLUMNS, beatExportRows()), 'text/csv;charset=utf-8');
     toast('节拍列表 CSV 已导出');
   }
 
   function exportBeatJson() {
     const project = projectData();
     const data = {
-      format: 'rhythm-beat-list', version: 1, name: project.name,
-      audio: project.audio ? { file: project.audio.reference || project.audio.name, duration: project.duration } : null,
-      bpm: project.bpm, beatOffset: Math.round(project.beatOffset * 1000), timeUnit: 'milliseconds',
-      beats: project.beats.map(({ time, type, strength, note }) => ({ t: Math.round(time * 1000), type, strength, ...(note ? { note } : {}) }))
+      format: 'rhythm-beat-list', version: 2, name: project.name,
+      audio: project.audio ? { file: project.audio.reference || project.audio.name, duration_ms: Math.round(project.duration * 1000) } : null,
+      bpm: project.bpm, beat_offset_ms: Math.round(project.beatOffset * 1000), time_unit: 'milliseconds',
+      columns: BEAT_COLUMNS, beats: beatExportRows()
     };
     downloadFile(`${els.projectName.value || '节拍'}.beats.json`, JSON.stringify(data, null, 2), 'application/json');
     toast('节拍列表 JSON 已导出');
