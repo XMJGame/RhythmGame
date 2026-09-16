@@ -23,6 +23,7 @@
     bpm: 0,
     zoom: 1,
     viewStart: 0,
+    scrubbingTimeline: false,
     draggingId: null,
     dragMoved: false,
     history: [],
@@ -36,6 +37,7 @@
   let resizeFrame = 0;
   const canvasCtx = els.waveform.getContext('2d');
   const laneCtx = els.laneCanvas.getContext('2d');
+  const RULER_HEIGHT = 30;
   const KEY_LAYOUTS = {
     2: ['D', 'K'],
     3: ['F', 'Space', 'J'],
@@ -210,7 +212,7 @@
       els.dropZone.classList.add('hidden');
       els.fileCard.classList.remove('hidden');
       els.emptyWave.classList.add('hidden');
-      els.timelineHint.textContent = '双击空白处添加，拖动节拍线调整时间';
+      els.timelineHint.textContent = '上方时间尺拖动播放位置，下方波形编辑节拍';
       els.durationTime.textContent = formatTime(state.audioBuffer.duration);
       els.analysisResult.classList.add('hidden');
       enableAudioControls(true);
@@ -539,7 +541,12 @@
     canvasCtx.fillStyle = '#0b1015';
     canvasCtx.fillRect(0, 0, width, height);
     const duration = viewDuration();
-    const rulerHeight = 30;
+    const rulerHeight = RULER_HEIGHT;
+
+    canvasCtx.fillStyle = 'rgba(19,26,33,.96)';
+    canvasCtx.fillRect(0, 0, width, rulerHeight);
+    canvasCtx.strokeStyle = 'rgba(255,255,255,.12)';
+    canvasCtx.beginPath(); canvasCtx.moveTo(0, rulerHeight - .5); canvasCtx.lineTo(width, rulerHeight - .5); canvasCtx.stroke();
 
     canvasCtx.strokeStyle = 'rgba(131,148,163,.16)';
     canvasCtx.fillStyle = '#697581';
@@ -850,7 +857,15 @@
     });
     els.beatTableBody.append(fragment);
     const selectedRow = els.beatTableBody.querySelector('tr.selected');
-    if (selectedRow && document.activeElement?.closest('.beat-list') == null) selectedRow.scrollIntoView({ block: 'nearest' });
+    if (selectedRow) {
+      const scrollBox = selectedRow.closest('.table-wrap');
+      if (scrollBox) {
+        const rowTop = selectedRow.offsetTop;
+        const rowBottom = rowTop + selectedRow.offsetHeight;
+        if (rowTop < scrollBox.scrollTop) scrollBox.scrollTop = rowTop;
+        else if (rowBottom > scrollBox.scrollTop + scrollBox.clientHeight) scrollBox.scrollTop = rowBottom - scrollBox.clientHeight;
+      }
+    }
   }
 
   function renderInspector() {
@@ -882,12 +897,32 @@
 
   function canvasPointer(event) {
     const rect = els.waveform.getBoundingClientRect();
-    return { x: Math.max(0, Math.min(event.clientX - rect.left, rect.width)), width: rect.width };
+    return {
+      x: Math.max(0, Math.min(event.clientX - rect.left, rect.width)),
+      y: Math.max(0, Math.min(event.clientY - rect.top, rect.height)),
+      width: rect.width,
+      height: rect.height
+    };
+  }
+
+  function seekFromTimeline(x, width) {
+    els.audio.currentTime = Math.max(0, Math.min(xToTime(x, width), els.audio.duration));
+    els.currentTime.textContent = formatTime(els.audio.currentTime);
+    renderTimeline();
+    renderLaneEditor();
   }
 
   function startDrag(event) {
     if (!state.audioBuffer) return;
-    const { x, width } = canvasPointer(event);
+    const { x, y, width } = canvasPointer(event);
+    if (y <= RULER_HEIGHT) {
+      state.scrubbingTimeline = true;
+      els.waveform.setPointerCapture(event.pointerId);
+      els.dragHelp.textContent = '拖动以定位播放位置';
+      els.dragHelp.classList.remove('hidden');
+      seekFromTimeline(x, width);
+      return;
+    }
     const beat = nearestBeatAt(x, width, 11);
     if (beat) {
       snapshot();
@@ -904,8 +939,15 @@
   }
 
   function moveDrag(event) {
-    if (!state.draggingId) return;
-    const { x, width } = canvasPointer(event);
+    const { x, y, width } = canvasPointer(event);
+    if (state.scrubbingTimeline) {
+      seekFromTimeline(x, width);
+      return;
+    }
+    if (!state.draggingId) {
+      els.waveform.style.cursor = y <= RULER_HEIGHT ? 'ew-resize' : nearestBeatAt(x, width, 11) ? 'col-resize' : 'crosshair';
+      return;
+    }
     const beat = state.beats.find(item => item.id === state.draggingId);
     if (!beat) return;
     beat.time = Number(Math.max(0, Math.min(xToTime(x, width), els.audio.duration)).toFixed(3));
@@ -916,6 +958,12 @@
   }
 
   function endDrag() {
+    if (state.scrubbingTimeline) {
+      state.scrubbingTimeline = false;
+      els.dragHelp.classList.add('hidden');
+      els.dragHelp.textContent = '拖动以调整时间';
+      return;
+    }
     if (!state.draggingId) return;
     state.beats.sort((a, b) => a.time - b.time);
     state.draggingId = null;
@@ -1143,7 +1191,10 @@
   els.waveform.addEventListener('pointermove', moveDrag);
   els.waveform.addEventListener('pointerup', endDrag);
   els.waveform.addEventListener('pointercancel', endDrag);
-  els.waveform.addEventListener('dblclick', event => { const p = canvasPointer(event); if (!nearestBeatAt(p.x, p.width)) addBeat(xToTime(p.x, p.width)); });
+  els.waveform.addEventListener('dblclick', event => {
+    const p = canvasPointer(event);
+    if (p.y > RULER_HEIGHT && !nearestBeatAt(p.x, p.width)) addBeat(xToTime(p.x, p.width));
+  });
   els.waveform.addEventListener('wheel', event => {
     if (!state.audioBuffer) return;
     event.preventDefault();
