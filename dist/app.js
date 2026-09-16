@@ -493,10 +493,9 @@
     const weakCut = values[Math.floor(values.length * Math.max(.05, .42 - sensitivity / 240))] || 0;
     let selected = candidates;
     if (density === 'concise') {
-      const evenScore = candidates.filter((_, i) => i % 2 === 0).reduce((sum, item) => sum + item.strength, 0);
-      const oddScore = candidates.filter((_, i) => i % 2 === 1).reduce((sum, item) => sum + item.strength, 0);
-      const parity = oddScore > evenScore ? 1 : 0;
-      selected = candidates.filter((_, i) => i % 2 === parity);
+      // Keep a predictable one-marker-per-two-beats grid anchored to Offset.
+      // Choosing the louder odd/even group could hide the very first beat.
+      selected = candidates.filter((_, i) => i % 2 === 0);
     } else if (density === 'detailed') {
       const expanded = [];
       candidates.forEach((item, i) => {
