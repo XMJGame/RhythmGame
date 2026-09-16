@@ -3,7 +3,7 @@
 
   const $ = (id) => document.getElementById(id);
   const els = Object.fromEntries([
-    'audio','audioFile','projectFile','dropZone','fileCard','fileName','fileMeta','replaceAudioBtn','analyzeBtn','analysisDensity','sensitivity','sensitivityValue','analysisResult','bpmValue','beatCount','countPill','playBtn','playIcon','stopBtn','backBtn','forwardBtn','currentTime','durationTime','playbackRate','metronome','waveform','canvasShell','emptyWave','timelineHint','zoom','fitBtn','addBeatBtn','undoBtn','redoBtn','beatTableBody','tableEmpty','selectedLabel','inspectorFields','beatTimeInput','beatType','beatStrength','strengthValue','beatNote','deleteBeatBtn','projectName','saveProjectBtn','openProjectBtn','exportGameCsvBtn','exportGameJsonBtn','exportBeatCsvBtn','exportBeatJsonBtn','toastRegion','progressModal','progressBar','progressText','dragHelp','laneCount','snapDivision','noteType','holdLengthWrap','holdLength','laneCanvas','laneEmpty','laneKeys','noteCount','clearNotesBtn','testModeBtn','generateChartBtn','laneModeHelp','judgementPop'
+    'audio','audioFile','projectFile','dropZone','fileCard','fileName','fileMeta','replaceAudioBtn','analyzeBtn','analysisDensity','sensitivity','sensitivityValue','analysisResult','bpmValue','beatCount','countPill','playBtn','playIcon','stopBtn','backBtn','forwardBtn','currentTime','durationTime','playbackRate','metronome','waveform','canvasShell','emptyWave','timelineHint','zoom','fitBtn','addBeatBtn','undoBtn','redoBtn','beatTableBody','tableEmpty','selectedLabel','inspectorFields','beatTimeInput','beatType','beatStrength','strengthValue','beatNote','deleteBeatBtn','projectName','saveProjectBtn','openProjectBtn','helpBtn','helpModal','helpCloseBtn','helpDoneBtn','exportGameCsvBtn','exportGameJsonBtn','exportBeatCsvBtn','exportBeatJsonBtn','toastRegion','progressModal','progressBar','progressText','dragHelp','laneCount','snapDivision','noteType','holdLengthWrap','holdLength','laneCanvas','laneEmpty','laneKeys','noteCount','clearNotesBtn','testModeBtn','generateChartBtn','laneModeHelp','judgementPop'
   ].map(id => [id, $(id)]));
 
   const state = {
@@ -37,6 +37,7 @@
 
   let animationFrame = 0;
   let resizeFrame = 0;
+  let helpReturnFocus = null;
   const canvasCtx = els.waveform.getContext('2d');
   const laneCtx = els.laneCanvas.getContext('2d');
   const RULER_HEIGHT = 30;
@@ -1352,6 +1353,26 @@
     if (beat) updateSelected({ time: beat.time + Number(button.dataset.step) });
   }));
   els.deleteBeatBtn.addEventListener('click', () => deleteBeat());
+  function openHelp() {
+    helpReturnFocus = document.activeElement;
+    els.helpModal.classList.remove('hidden');
+    document.body.classList.add('modal-open');
+    els.helpCloseBtn.focus();
+  }
+
+  function closeHelp() {
+    if (els.helpModal.classList.contains('hidden')) return;
+    els.helpModal.classList.add('hidden');
+    document.body.classList.remove('modal-open');
+    if (helpReturnFocus instanceof HTMLElement) helpReturnFocus.focus();
+  }
+
+  els.helpBtn.addEventListener('click', openHelp);
+  els.helpCloseBtn.addEventListener('click', closeHelp);
+  els.helpDoneBtn.addEventListener('click', closeHelp);
+  els.helpModal.addEventListener('pointerdown', event => {
+    if (event.target === els.helpModal) closeHelp();
+  });
   els.saveProjectBtn.addEventListener('click', saveProject);
   els.openProjectBtn.addEventListener('click', () => els.projectFile.click());
   els.projectFile.addEventListener('change', event => openProject(event.target.files[0]));
@@ -1385,6 +1406,20 @@
   els.laneCanvas.addEventListener('contextmenu', event => { event.preventDefault(); handleLanePointer(event); });
 
   document.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && !els.helpModal.classList.contains('hidden')) {
+      event.preventDefault();
+      closeHelp();
+      return;
+    }
+    if (event.key === 'Tab' && !els.helpModal.classList.contains('hidden')) {
+      const focusable = [...els.helpModal.querySelectorAll('button,[href],input,select,textarea,[tabindex]:not([tabindex="-1"])')]
+        .filter(element => !element.disabled && element.offsetParent !== null);
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+      return;
+    }
     if (event.target.matches('input,select,textarea')) return;
     const mod = event.ctrlKey || event.metaKey;
     if (mod && event.key.toLowerCase() === 'z') { event.preventDefault(); event.shiftKey ? redo() : undo(); return; }

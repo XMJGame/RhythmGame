@@ -21,6 +21,7 @@
           <input id="projectName" value="未命名谱面" maxlength="60" />
         </div>
         <div class="header-actions">
+          <button class="btn ghost help-btn" id="helpBtn" type="button" aria-haspopup="dialog" aria-controls="helpModal">? 使用帮助</button>
           <button class="btn ghost" id="openProjectBtn" title="打开之前保存的完整编辑工程">打开工程文件</button>
           <input id="projectFile" type="file" accept="application/json,.json" hidden />
           <button class="btn primary" id="saveProjectBtn">保存完整工程</button>
@@ -171,6 +172,57 @@
     <div class="toast-region" id="toastRegion" aria-live="polite"></div>
     <div class="modal hidden" id="progressModal" role="dialog" aria-modal="true" aria-labelledby="progressTitle">
       <div class="modal-card"><div class="spinner"></div><h2 id="progressTitle">正在听音乐…</h2><p id="progressText">正在寻找明显的鼓点和节奏规律</p><div class="progress-track"><i id="progressBar"></i></div></div>
+    </div>
+    <div class="help-modal hidden" id="helpModal" role="dialog" aria-modal="true" aria-labelledby="helpTitle">
+      <article class="help-dialog">
+        <header class="help-header">
+          <div><span class="help-kicker">QUICK GUIDE</span><h2 id="helpTitle">节拍工坊使用帮助</h2><p>不懂乐理也没关系：先让工具找节拍，再用耳朵试听和微调。</p></div>
+          <button class="help-close" id="helpCloseBtn" type="button" aria-label="关闭使用帮助">×</button>
+        </header>
+        <div class="help-body">
+          <section class="help-section" aria-labelledby="helpStartTitle">
+            <h3 id="helpStartTitle">第一次使用：按这 5 步完成一张谱</h3>
+            <ol class="help-steps">
+              <li><b>1</b><div><strong>加载音乐</strong><span>选择本机的 MP3、WAV、OGG 或 M4A。</span></div></li>
+              <li><b>2</b><div><strong>自动找节拍</strong><span>先用“精简”密度，结果太少再提高。</span></div></li>
+              <li><b>3</b><div><strong>试听并修正</strong><span>上方时间尺拖播放位置；下方波形选择、拖动或双击节拍。</span></div></li>
+              <li><b>4</b><div><strong>制作轨道谱面</strong><span>生成基础谱面后增删音符，也可边播放边按键录入。</span></div></li>
+              <li><b>5</b><div><strong>保存或导出</strong><span>保存工程方便下次继续；导出数据交给游戏使用。</span></div></li>
+            </ol>
+          </section>
+
+          <div class="help-columns">
+            <section class="help-section">
+              <h3>先分清两个概念</h3>
+              <div class="concept-card"><strong><i class="dot beat-dot"></i>节拍</strong><p>音乐里规律出现的时间点，是分析和对齐音符的参考网格。它不是玩家最终要按的全部音符。</p></div>
+              <div class="concept-card"><strong><i class="dot note-dot"></i>轨道谱面</strong><p>玩家实际游玩的音符数据，包含出现时间、所在轨道，以及点击或长按类型。</p></div>
+              <div class="help-callout"><strong>“节拍对齐”是什么？</strong><p>在轨道上点击放音符时，把它吸到最近的每拍、半拍或 1/4 拍，减少手抖造成的偏差；选“自由放置”则保留点击的准确时间。</p></div>
+            </section>
+            <section class="help-section">
+              <h3>常用操作与键位</h3>
+              <dl class="shortcut-list">
+                <div><dt><kbd>空格</kbd></dt><dd>播放 / 暂停</dd></div>
+                <div><dt><kbd>T</kbd></dt><dd>在当前播放位置添加节拍</dd></div>
+                <div><dt><kbd>Ctrl</kbd> + <kbd>Z</kbd></dt><dd>撤销上一步</dd></div>
+                <div><dt><kbd>2–6 轨</kbd></dt><dd>可选不同轨道数量；当前按键会显示在轨道下方</dd></div>
+                <div><dt><kbd>右键</kbd></dt><dd>删除轨道中的音符</dd></div>
+              </dl>
+              <p class="help-note">自动分析只是起点。鼓点复杂、前奏很轻或真人演奏的歌曲可能出现误判，建议打开节拍提示音，从头试听一遍。</p>
+            </section>
+          </div>
+
+          <section class="help-section" aria-labelledby="helpExportTitle">
+            <h3 id="helpExportTitle">保存与导出分别是什么意思？</h3>
+            <div class="export-help-grid">
+              <article class="export-help-card project"><span>继续编辑</span><h4>保存完整工程 · .rhythm.json</h4><p>保存节拍、轨道音符、BPM 和编辑设置。以后用“打开工程文件”继续制作。</p><small>浏览器不会保存音乐文件本身或电脑中的绝对路径；重新打开工程时，需要再次选择原来的音乐进行关联。</small></article>
+              <article class="export-help-card"><span>给游戏读取</span><h4>游戏谱面 · JSON / CSV</h4><p>导出玩家真正要按的音符。JSON 带有完整结构和元数据，通常更适合程序；CSV 与 JSON 的音符行一致，适合用表格查看和修改。</p></article>
+              <article class="export-help-card"><span>保留分析结果</span><h4>节拍列表 · JSON / CSV</h4><p>只导出音乐的节拍时间、类型、强度和备注，不包含轨道音符。适合复用节拍、检查分析结果或交给其他制谱流程。</p></article>
+              <article class="export-help-card fields"><span>字段速查</span><h4>数据里的常见名称</h4><p><code>time_ms</code>：毫秒时间；<code>lane</code>：从 0 开始的程序轨道号；<code>lane_display</code>：从 1 开始的人类轨道号；<code>tap</code>：点击；<code>hold</code>：长按；<code>end_time_ms</code>：长按结束时间。</p></article>
+            </div>
+          </section>
+        </div>
+        <footer class="help-footer"><span>建议：制作过程中经常“保存完整工程”，完成后再导出游戏谱面。</span><button class="btn primary" id="helpDoneBtn" type="button">知道了，开始制作</button></footer>
+      </article>
     </div>
     <audio id="audio" preload="metadata"></audio>
     <script src="./app.js"></script>
