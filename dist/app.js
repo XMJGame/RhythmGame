@@ -3,13 +3,15 @@
 
   const $ = (id) => document.getElementById(id);
   const els = Object.fromEntries([
-    'audio','audioFile','projectFile','dropZone','fileCard','fileName','fileMeta','replaceAudioBtn','analyzeBtn','analysisDensity','sensitivity','sensitivityValue','analysisResult','bpmValue','beatCount','countPill','playBtn','playIcon','stopBtn','backBtn','forwardBtn','currentTime','durationTime','playbackRate','metronome','waveform','canvasShell','emptyWave','timelineHint','zoom','fitBtn','addBeatBtn','undoBtn','redoBtn','beatTableBody','tableEmpty','selectedLabel','inspectorFields','beatTimeInput','beatType','beatStrength','strengthValue','beatNote','deleteBeatBtn','projectName','saveProjectBtn','openProjectBtn','exportCsvBtn','exportJsonBtn','toastRegion','progressModal','progressBar','progressText','dragHelp','laneCount','snapDivision','noteType','holdLengthWrap','holdLength','laneCanvas','laneEmpty','laneKeys','noteCount','clearNotesBtn','testModeBtn','generateChartBtn','laneModeHelp','judgementPop'
+    'audio','audioFile','projectFile','dropZone','fileCard','fileName','fileMeta','replaceAudioBtn','analyzeBtn','analysisDensity','sensitivity','sensitivityValue','analysisResult','bpmValue','beatCount','countPill','playBtn','playIcon','stopBtn','backBtn','forwardBtn','currentTime','durationTime','playbackRate','metronome','waveform','canvasShell','emptyWave','timelineHint','zoom','fitBtn','addBeatBtn','undoBtn','redoBtn','beatTableBody','tableEmpty','selectedLabel','inspectorFields','beatTimeInput','beatType','beatStrength','strengthValue','beatNote','deleteBeatBtn','projectName','saveProjectBtn','openProjectBtn','exportGameCsvBtn','exportGameJsonBtn','exportBeatCsvBtn','exportBeatJsonBtn','toastRegion','progressModal','progressBar','progressText','dragHelp','laneCount','snapDivision','noteType','holdLengthWrap','holdLength','laneCanvas','laneEmpty','laneKeys','noteCount','clearNotesBtn','testModeBtn','generateChartBtn','laneModeHelp','judgementPop'
   ].map(id => [id, $(id)]));
 
   const state = {
     audioBuffer: null,
     audioFile: null,
     audioUrl: null,
+    projectDuration: 0,
+    pendingAudioReference: null,
     waveform: [],
     beats: [],
     notes: [],
@@ -129,15 +131,35 @@
   }
 
   function projectData(includeVersion = true) {
+    const duration = els.audio.duration || state.audioBuffer?.duration || state.projectDuration || 0;
+    const audioReference = state.audioFile ? {
+      sourceKind: 'local-file',
+      reference: state.audioFile.webkitRelativePath || state.audioFile.name,
+      name: state.audioFile.name,
+      type: state.audioFile.type || '',
+      size: state.audioFile.size,
+      lastModified: state.audioFile.lastModified || 0,
+      duration: Number(duration.toFixed(3))
+    } : state.pendingAudioReference;
     return {
-      ...(includeVersion ? { format: 'rhythm-chart-studio', version: 2 } : {}),
+      ...(includeVersion ? { format: 'rhythm-chart-studio', version: 3 } : {}),
       name: els.projectName.value.trim() || '未命名谱面',
-      audio: state.audioFile ? { name: state.audioFile.name, size: state.audioFile.size, duration: els.audio.duration || 0 } : null,
+      audio: audioReference || null,
       bpm: Number(state.bpm.toFixed(2)),
       beatOffset: Number(state.beatOffset.toFixed(3)),
       laneCount: state.laneCount,
       snapDivision: Number(els.snapDivision.value),
-      duration: Number((els.audio.duration || 0).toFixed(3)),
+      duration: Number(duration.toFixed(3)),
+      settings: {
+        analysisDensity: els.analysisDensity.value,
+        sensitivity: Number(els.sensitivity.value),
+        playbackRate: Number(els.playbackRate.value),
+        metronome: els.metronome.checked,
+        zoom: state.zoom,
+        snapDivision: Number(els.snapDivision.value),
+        noteType: els.noteType.value,
+        holdLength: Number(els.holdLength.value)
+      },
       createdWith: '节拍工坊',
       beats: state.beats.map((beat, index) => ({
         index: index + 1,
@@ -154,6 +176,34 @@
         ...(note.type === 'hold' ? { endTime: Number(note.endTime.toFixed(3)) } : {})
       }))
     };
+  }
+
+  function audioReferenceMatches(reference, file, duration = 0) {
+    if (!reference || !file) return false;
+    const sameName = !reference.name || reference.name === file.name;
+    const sameSize = !reference.size || Number(reference.size) === file.size;
+    const sameModified = !reference.lastModified || Number(reference.lastModified) === Number(file.lastModified || 0);
+    const sameDuration = !reference.duration || !duration || Math.abs(Number(reference.duration) - duration) < .25;
+    return sameName && sameSize && sameModified && sameDuration;
+  }
+
+  function detachAudioForProject(reference) {
+    els.audio.pause();
+    els.audio.removeAttribute('src');
+    els.audio.load();
+    if (state.audioUrl) URL.revokeObjectURL(state.audioUrl);
+    state.audioUrl = null;
+    state.audioFile = null;
+    state.audioBuffer = null;
+    state.waveform = [];
+    state.pendingAudioReference = reference || null;
+    els.audioFile.value = '';
+    els.fileCard.classList.add('hidden');
+    els.dropZone.classList.remove('hidden');
+    els.emptyWave.classList.toggle('hidden', state.beats.length > 0);
+    els.timelineHint.textContent = reference?.name ? `请重新关联音乐“${reference.name}”` : '请重新关联工程使用的音乐';
+    els.durationTime.textContent = formatTime(state.projectDuration);
+    enableAudioControls(false);
   }
 
   function downloadFile(name, content, type) {
@@ -177,7 +227,8 @@
       toast('请选择 MP3、WAV、OGG、M4A 等音乐文件', 'error');
       return;
     }
-    if ((state.beats.length || state.notes.length) && !confirm('更换音乐会清空当前节拍和轨道音符，继续吗？')) {
+    const relinkingProject = Boolean(state.pendingAudioReference);
+    if (!relinkingProject && (state.beats.length || state.notes.length) && !confirm('更换音乐会清空当前节拍和轨道音符，继续吗？')) {
       els.audioFile.value = '';
       return;
     }
@@ -197,16 +248,21 @@
       state.audioBuffer = await state.audioContext.decodeAudioData(arrayBuffer.slice(0));
       state.waveform = buildWaveform(state.audioBuffer, 2400);
       await waitForMetadata();
-      state.beats = [];
-      state.notes = [];
-      state.selectedId = null;
-      state.selectedNoteId = null;
-      state.history = [];
-      state.future = [];
-      state.bpm = 0;
-      state.zoom = 1;
-      state.viewStart = 0;
-      els.zoom.value = '1';
+      const referenceMatched = !relinkingProject || audioReferenceMatches(state.pendingAudioReference, file, state.audioBuffer.duration);
+      state.projectDuration = state.audioBuffer.duration;
+      if (!relinkingProject) {
+        state.beats = [];
+        state.notes = [];
+        state.selectedId = null;
+        state.selectedNoteId = null;
+        state.history = [];
+        state.future = [];
+        state.bpm = 0;
+        state.zoom = 1;
+        state.viewStart = 0;
+        els.zoom.value = '1';
+      }
+      state.pendingAudioReference = null;
       els.fileName.textContent = file.name;
       els.fileMeta.textContent = `${fileSize(file.size)} · ${formatTime(state.audioBuffer.duration)}`;
       els.dropZone.classList.add('hidden');
@@ -220,7 +276,9 @@
       markDirty();
       showProgress('音乐准备好了', 100);
       setTimeout(hideProgress, 220);
-      toast('音乐已载入，可以自动分析或直接播放打拍子');
+      if (relinkingProject && !referenceMatched) toast('音乐已关联，但文件指纹与工程记录不同，请试听检查是否选错音乐', 'error');
+      else if (relinkingProject) toast('已重新关联原音乐，节拍和轨道谱面已保留');
+      else toast('音乐已载入，可以自动分析或直接播放打拍子');
     } catch (error) {
       hideProgress();
       console.error(error);
@@ -468,7 +526,7 @@
     if (!beat) return;
     if (takeSnapshot) snapshot();
     Object.assign(beat, changes);
-    beat.time = Math.max(0, Math.min(Number(beat.time) || 0, els.audio.duration || Infinity));
+    beat.time = Math.max(0, Math.min(Number(beat.time) || 0, els.audio.duration || state.projectDuration || Infinity));
     state.beats.sort((a, b) => a.time - b.time);
     renderAll();
     markDirty();
@@ -492,12 +550,14 @@
     els.clearNotesBtn.disabled = !state.notes.length;
     els.testModeBtn.disabled = !state.notes.length || !state.audioBuffer;
     els.generateChartBtn.disabled = !state.beats.length || !state.audioBuffer;
-    els.exportCsvBtn.disabled = !state.beats.length && !state.notes.length;
-    els.exportJsonBtn.disabled = !state.beats.length && !state.notes.length;
+    els.exportGameCsvBtn.disabled = !state.notes.length;
+    els.exportGameJsonBtn.disabled = !state.notes.length;
+    els.exportBeatCsvBtn.disabled = !state.beats.length;
+    els.exportBeatJsonBtn.disabled = !state.beats.length;
   }
 
   function viewDuration() {
-    const duration = els.audio.duration || state.audioBuffer?.duration || 1;
+    const duration = els.audio.duration || state.audioBuffer?.duration || state.projectDuration || 1;
     return duration / state.zoom;
   }
 
@@ -1016,7 +1076,7 @@
   function saveProject() {
     downloadFile(`${els.projectName.value || '未命名谱面'}.rhythm.json`, JSON.stringify(projectData(), null, 2), 'application/json');
     state.dirty = false;
-    toast('工程已保存。下次还需要重新选择同一首音乐。');
+    toast('完整工程已保存：包含音乐引用、编辑设置、节拍和轨道谱面');
   }
 
   async function openProject(file) {
@@ -1032,6 +1092,7 @@
       })).sort((a, b) => a.time - b.time);
       state.bpm = Number(data.bpm) || 0;
       state.beatOffset = Number(data.beatOffset) || 0;
+      state.projectDuration = Number(data.duration || data.audio?.duration) || 0;
       state.laneCount = Math.max(2, Math.min(6, Number(data.laneCount) || 4));
       state.notes = Array.isArray(data.notes) ? data.notes.map(note => ({
         id: makeId(),
@@ -1042,37 +1103,81 @@
       })).sort((a, b) => a.time - b.time || a.lane - b.lane) : [];
       els.laneCount.value = String(state.laneCount);
       if ([0,1,2,4].includes(Number(data.snapDivision))) els.snapDivision.value = String(data.snapDivision);
+      const settings = data.settings || {};
+      if (['concise','standard','detailed'].includes(settings.analysisDensity)) els.analysisDensity.value = settings.analysisDensity;
+      if (Number.isFinite(Number(settings.sensitivity))) els.sensitivity.value = String(Math.max(0, Math.min(100, Number(settings.sensitivity))));
+      els.sensitivityValue.textContent = `${els.sensitivity.value}%`;
+      if ([.5,.75,1,1.25].includes(Number(settings.playbackRate))) els.playbackRate.value = String(settings.playbackRate);
+      els.audio.playbackRate = Number(els.playbackRate.value);
+      els.metronome.checked = Boolean(settings.metronome);
+      if ([0,1,2,4].includes(Number(settings.snapDivision))) els.snapDivision.value = String(settings.snapDivision);
+      if (['tap','hold'].includes(settings.noteType)) els.noteType.value = settings.noteType;
+      if ([1,2,4].includes(Number(settings.holdLength))) els.holdLength.value = String(settings.holdLength);
+      els.holdLengthWrap.classList.toggle('hidden', els.noteType.value !== 'hold');
+      state.zoom = Math.max(1, Math.min(12, Number(settings.zoom) || 1));
+      els.zoom.value = String(state.zoom);
       els.projectName.value = data.name || file.name.replace(/\.rhythm\.json$|\.json$/i, '');
       els.bpmValue.textContent = state.bpm ? state.bpm.toFixed(1) : '—';
       els.analysisResult.classList.remove('hidden');
       state.selectedId = null;
+      state.selectedNoteId = null;
+      const currentAudioMatches = audioReferenceMatches(data.audio, state.audioFile, state.audioBuffer?.duration || 0);
+      if (!currentAudioMatches) detachAudioForProject(data.audio || null);
+      else state.pendingAudioReference = null;
       renderAll();
       markDirty();
-      const audioHint = data.audio?.name ? ` 请再载入音乐“${data.audio.name}”。` : '';
+      const audioHint = currentAudioMatches ? '音乐已自动匹配。' : data.audio?.name ? `请重新关联音乐“${data.audio.name}”。` : '该工程没有音乐引用。';
       toast(`工程已打开：${state.beats.length} 个节拍、${state.notes.length} 个轨道音符。${audioHint}`);
     } catch (error) {
       toast('这个文件不是有效的节拍工程', 'error');
     }
   }
 
-  function exportCsv() {
+  function csvText(rows) {
+    return '\ufeff' + rows.map(row => row.map(value => `"${String(value ?? '').replace(/"/g, '""')}"`).join(',')).join('\r\n');
+  }
+
+  function exportGameCsv() {
     const rows = [
-      ['record_kind','index','time_seconds','time_display','lane','type','end_time','strength','note'],
-      ...state.beats.map((beat, i) => ['beat', i + 1, beat.time.toFixed(3), formatTime(beat.time), '', beat.type, '', beat.strength, beat.note]),
-      ...state.notes.map((note, i) => ['game_note', i + 1, note.time.toFixed(3), formatTime(note.time), note.lane, note.type, note.type === 'hold' ? note.endTime.toFixed(3) : '', '', ''])
+      ['index','time_ms','time_display','lane_zero_based','lane_display','type','end_time_ms','duration_ms'],
+      ...state.notes.map((note, i) => [i + 1, Math.round(note.time * 1000), formatTime(note.time), note.lane, note.lane + 1, note.type, note.type === 'hold' ? Math.round(note.endTime * 1000) : '', note.type === 'hold' ? Math.round((note.endTime - note.time) * 1000) : ''])
     ];
-    const csv = rows.map(row => row.map(value => `"${String(value).replace(/"/g, '""')}"`).join(',')).join('\r\n');
-    downloadFile(`${els.projectName.value || '谱面'}.csv`, '\ufeff' + csv, 'text/csv;charset=utf-8');
-    toast('CSV 已导出');
+    downloadFile(`${els.projectName.value || '谱面'}.game.csv`, csvText(rows), 'text/csv;charset=utf-8');
+    toast('游戏谱面 CSV 已导出');
   }
 
   function exportGameJson() {
-    const data = projectData();
-    data.beats = data.beats.map(({ index, time, type, strength, note }) => ({ t: Math.round(time * 1000), type, strength, ...(note ? { note } : {}) }));
-    data.notes = data.notes.map(({ index, time, endTime, lane, type }) => ({ t: Math.round(time * 1000), lane, type, ...(type === 'hold' ? { end: Math.round(endTime * 1000) } : {}) }));
-    data.timeUnit = 'milliseconds';
+    const project = projectData();
+    const data = {
+      format: 'rhythm-game-chart', version: 1, name: project.name,
+      audio: project.audio ? { file: project.audio.reference || project.audio.name, duration: project.duration } : null,
+      laneCount: project.laneCount, bpm: project.bpm, beatOffset: Math.round(project.beatOffset * 1000),
+      timeUnit: 'milliseconds',
+      notes: project.notes.map(({ time, endTime, lane, type }) => ({ t: Math.round(time * 1000), lane, type, ...(type === 'hold' ? { end: Math.round(endTime * 1000) } : {}) }))
+    };
     downloadFile(`${els.projectName.value || '谱面'}.game.json`, JSON.stringify(data, null, 2), 'application/json');
     toast('游戏 JSON 已导出，时间单位是毫秒');
+  }
+
+  function exportBeatCsv() {
+    const rows = [
+      ['index','time_ms','time_seconds','time_display','type','strength','note'],
+      ...state.beats.map((beat, i) => [i + 1, Math.round(beat.time * 1000), beat.time.toFixed(3), formatTime(beat.time), beat.type, beat.strength, beat.note])
+    ];
+    downloadFile(`${els.projectName.value || '节拍'}.beats.csv`, csvText(rows), 'text/csv;charset=utf-8');
+    toast('节拍列表 CSV 已导出');
+  }
+
+  function exportBeatJson() {
+    const project = projectData();
+    const data = {
+      format: 'rhythm-beat-list', version: 1, name: project.name,
+      audio: project.audio ? { file: project.audio.reference || project.audio.name, duration: project.duration } : null,
+      bpm: project.bpm, beatOffset: Math.round(project.beatOffset * 1000), timeUnit: 'milliseconds',
+      beats: project.beats.map(({ time, type, strength, note }) => ({ t: Math.round(time * 1000), type, strength, ...(note ? { note } : {}) }))
+    };
+    downloadFile(`${els.projectName.value || '节拍'}.beats.json`, JSON.stringify(data, null, 2), 'application/json');
+    toast('节拍列表 JSON 已导出');
   }
 
   async function registerWebMcpTools() {
@@ -1227,8 +1332,10 @@
   els.saveProjectBtn.addEventListener('click', saveProject);
   els.openProjectBtn.addEventListener('click', () => els.projectFile.click());
   els.projectFile.addEventListener('change', event => openProject(event.target.files[0]));
-  els.exportCsvBtn.addEventListener('click', exportCsv);
-  els.exportJsonBtn.addEventListener('click', exportGameJson);
+  els.exportGameCsvBtn.addEventListener('click', exportGameCsv);
+  els.exportGameJsonBtn.addEventListener('click', exportGameJson);
+  els.exportBeatCsvBtn.addEventListener('click', exportBeatCsv);
+  els.exportBeatJsonBtn.addEventListener('click', exportBeatJson);
   els.projectName.addEventListener('input', markDirty);
   els.laneCount.addEventListener('change', () => {
     const next = Number(els.laneCount.value);
@@ -1291,13 +1398,25 @@
       state.beats = saved.beats.map(beat => ({ ...beat, id: makeId() }));
       state.bpm = Number(saved.bpm) || 0;
       state.beatOffset = Number(saved.beatOffset) || 0;
+      state.projectDuration = Number(saved.duration || saved.audio?.duration) || 0;
+      state.pendingAudioReference = saved.audio || null;
       state.laneCount = Math.max(2, Math.min(6, Number(saved.laneCount) || 4));
       state.notes = Array.isArray(saved.notes) ? saved.notes.map(note => ({ ...note, id: makeId() })) : [];
       els.laneCount.value = String(state.laneCount);
       if ([0,1,2,4].includes(Number(saved.snapDivision))) els.snapDivision.value = String(saved.snapDivision);
+      const settings = saved.settings || {};
+      if (['concise','standard','detailed'].includes(settings.analysisDensity)) els.analysisDensity.value = settings.analysisDensity;
+      if (Number.isFinite(Number(settings.sensitivity))) els.sensitivity.value = String(Math.max(0, Math.min(100, Number(settings.sensitivity))));
+      els.sensitivityValue.textContent = `${els.sensitivity.value}%`;
+      if ([.5,.75,1,1.25].includes(Number(settings.playbackRate))) els.playbackRate.value = String(settings.playbackRate);
+      els.metronome.checked = Boolean(settings.metronome);
+      if (['tap','hold'].includes(settings.noteType)) els.noteType.value = settings.noteType;
+      if ([1,2,4].includes(Number(settings.holdLength))) els.holdLength.value = String(settings.holdLength);
+      els.holdLengthWrap.classList.toggle('hidden', els.noteType.value !== 'hold');
       els.bpmValue.textContent = state.bpm ? state.bpm.toFixed(1) : '—';
       els.analysisResult.classList.remove('hidden');
-      toast(`已恢复上次未导出的 ${state.beats.length} 个节拍和 ${state.notes.length} 个音符，请重新载入音乐`);
+      if (saved.audio?.name) els.timelineHint.textContent = `请重新关联音乐“${saved.audio.name}”`;
+      toast(`已恢复上次未导出的 ${state.beats.length} 个节拍和 ${state.notes.length} 个音符，请重新关联音乐`);
     }
   } catch (_) { /* ignore corrupt autosave */ }
 

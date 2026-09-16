@@ -21,9 +21,9 @@
           <input id="projectName" value="未命名谱面" maxlength="60" />
         </div>
         <div class="header-actions">
-          <button class="btn ghost" id="openProjectBtn" title="打开之前保存的工程">打开工程</button>
+          <button class="btn ghost" id="openProjectBtn" title="打开之前保存的完整编辑工程">打开工程文件</button>
           <input id="projectFile" type="file" accept="application/json,.json" hidden />
-          <button class="btn primary" id="saveProjectBtn">保存工程</button>
+          <button class="btn primary" id="saveProjectBtn">保存完整工程</button>
         </div>
       </header>
 
@@ -159,8 +159,11 @@
         </section>
 
         <section class="export-bar panel">
-          <div><span class="export-icon">⇩</span><div><strong>完成后导出谱面</strong><small>JSON 适合游戏读取，CSV 适合在表格里检查</small></div></div>
-          <div class="export-actions"><button class="btn ghost" id="exportCsvBtn" disabled>导出 CSV</button><button class="btn primary" id="exportJsonBtn" disabled>导出游戏 JSON</button></div>
+          <div class="export-intro"><span class="export-icon">⇩</span><div><strong>分类导出</strong><small>游戏谱面给游戏读取，节拍列表用于分析和复用</small></div></div>
+          <div class="export-groups">
+            <div class="export-group"><span>游戏谱面</span><div><button class="btn ghost" id="exportGameCsvBtn" disabled>CSV</button><button class="btn primary" id="exportGameJsonBtn" disabled>JSON</button></div></div>
+            <div class="export-group"><span>节拍列表</span><div><button class="btn ghost" id="exportBeatCsvBtn" disabled>CSV</button><button class="btn ghost" id="exportBeatJsonBtn" disabled>JSON</button></div></div>
+          </div>
         </section>
       </main>
     </div>
