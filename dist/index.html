@@ -45,9 +45,16 @@
 
             <div class="divider"></div>
             <div class="panel-heading compact"><span>02</span><div><h2>自动找节拍</h2><p>先自动生成，再按听感微调</p></div></div>
+            <label class="select-field">结果密度
+              <select id="analysisDensity">
+                <option value="concise" selected>精简 · 只留主要拍（推荐）</option>
+                <option value="standard">标准 · 每一拍</option>
+                <option value="detailed">细致 · 包含明显半拍</option>
+              </select>
+            </label>
             <label class="range-field">
-              <span>识别灵敏度 <output id="sensitivityValue">65%</output></span>
-              <input id="sensitivity" type="range" min="20" max="95" value="65" />
+              <span>弱拍保留程度 <output id="sensitivityValue">45%</output></span>
+              <input id="sensitivity" type="range" min="20" max="90" value="45" />
             </label>
             <button class="btn analyze" id="analyzeBtn" disabled><span>✦</span> 分析音乐并生成节拍</button>
             <div class="analysis-result hidden" id="analysisResult">
@@ -97,6 +104,33 @@
               </div>
               <div class="legend"><span><i class="legend-beat"></i>普通节拍</span><span><i class="legend-accent"></i>重拍</span><span><i class="legend-selected"></i>已选中</span><span class="hint">单击定位 · 双击添加 · 拖动节拍线调整</span></div>
             </div>
+
+            <section class="lane-editor panel">
+              <div class="lane-toolbar">
+                <div><h2>轨道谱面</h2><p>从节拍生成音符，或播放时直接按键录入</p></div>
+                <div class="lane-controls">
+                  <label>轨道<select id="laneCount"><option value="2">2 轨</option><option value="3">3 轨</option><option value="4" selected>4 轨</option><option value="5">5 轨</option><option value="6">6 轨</option></select></label>
+                  <label>吸附<select id="snapDivision"><option value="1">每拍</option><option value="2" selected>1/2 拍</option><option value="4">1/4 拍</option><option value="0">关闭</option></select></label>
+                  <label>音符<select id="noteType"><option value="tap">点击</option><option value="hold">长按</option></select></label>
+                  <label id="holdLengthWrap" class="hidden">长度<select id="holdLength"><option value="1">1 拍</option><option value="2">2 拍</option><option value="4">4 拍</option></select></label>
+                </div>
+              </div>
+              <div class="lane-stage-wrap">
+                <canvas id="laneCanvas" aria-label="游戏音符轨道编辑区"></canvas>
+                <div class="lane-empty" id="laneEmpty"><strong>还没有游戏音符</strong><span>先分析节拍，再点“一键生成基础谱面”</span></div>
+                <div class="judgement-pop hidden" id="judgementPop">PERFECT</div>
+              </div>
+              <div class="lane-footer">
+                <div class="lane-keys" id="laneKeys" aria-label="轨道按键"></div>
+                <div class="lane-actions">
+                  <span class="note-counter"><b id="noteCount">0</b> 个音符</span>
+                  <button class="btn ghost small" id="clearNotesBtn" disabled>清空音符</button>
+                  <button class="btn ghost small" id="testModeBtn" disabled>▷ 试玩模式</button>
+                  <button class="btn primary small" id="generateChartBtn" disabled>✦ 一键生成基础谱面</button>
+                </div>
+              </div>
+              <div class="lane-help"><span>点击轨道添加</span><span>右键音符删除</span><span>播放时按键实时录谱</span><span id="laneModeHelp">当前键位：D F J K</span></div>
+            </section>
 
             <div class="lower-grid">
               <section class="beat-list panel">

@@ -3,7 +3,7 @@
 
   const $ = (id) => document.getElementById(id);
   const els = Object.fromEntries([
-    'audio','audioFile','projectFile','dropZone','fileCard','fileName','fileMeta','replaceAudioBtn','analyzeBtn','sensitivity','sensitivityValue','analysisResult','bpmValue','beatCount','countPill','playBtn','playIcon','stopBtn','backBtn','forwardBtn','currentTime','durationTime','playbackRate','metronome','waveform','canvasShell','emptyWave','timelineHint','zoom','fitBtn','addBeatBtn','undoBtn','redoBtn','beatTableBody','tableEmpty','selectedLabel','inspectorFields','beatTimeInput','beatType','beatStrength','strengthValue','beatNote','deleteBeatBtn','projectName','saveProjectBtn','openProjectBtn','exportCsvBtn','exportJsonBtn','toastRegion','progressModal','progressBar','progressText','dragHelp'
+    'audio','audioFile','projectFile','dropZone','fileCard','fileName','fileMeta','replaceAudioBtn','analyzeBtn','analysisDensity','sensitivity','sensitivityValue','analysisResult','bpmValue','beatCount','countPill','playBtn','playIcon','stopBtn','backBtn','forwardBtn','currentTime','durationTime','playbackRate','metronome','waveform','canvasShell','emptyWave','timelineHint','zoom','fitBtn','addBeatBtn','undoBtn','redoBtn','beatTableBody','tableEmpty','selectedLabel','inspectorFields','beatTimeInput','beatType','beatStrength','strengthValue','beatNote','deleteBeatBtn','projectName','saveProjectBtn','openProjectBtn','exportCsvBtn','exportJsonBtn','toastRegion','progressModal','progressBar','progressText','dragHelp','laneCount','snapDivision','noteType','holdLengthWrap','holdLength','laneCanvas','laneEmpty','laneKeys','noteCount','clearNotesBtn','testModeBtn','generateChartBtn','laneModeHelp','judgementPop'
   ].map(id => [id, $(id)]));
 
   const state = {
@@ -12,6 +12,13 @@
     audioUrl: null,
     waveform: [],
     beats: [],
+    notes: [],
+    laneCount: 4,
+    beatOffset: 0,
+    selectedNoteId: null,
+    testMode: false,
+    hitNotes: new Set(),
+    activeLanes: new Set(),
     selectedId: null,
     bpm: 0,
     zoom: 1,
@@ -28,6 +35,14 @@
   let animationFrame = 0;
   let resizeFrame = 0;
   const canvasCtx = els.waveform.getContext('2d');
+  const laneCtx = els.laneCanvas.getContext('2d');
+  const KEY_LAYOUTS = {
+    2: ['D', 'K'],
+    3: ['F', 'Space', 'J'],
+    4: ['D', 'F', 'J', 'K'],
+    5: ['D', 'F', 'Space', 'J', 'K'],
+    6: ['S', 'D', 'F', 'J', 'K', 'L']
+  };
 
   function toast(message, type = 'success') {
     const node = document.createElement('div');
@@ -50,34 +65,45 @@
     return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
   }
 
-  function cloneBeats() {
-    return state.beats.map(beat => ({ ...beat }));
+  function cloneEditorState() {
+    return {
+      beats: state.beats.map(beat => ({ ...beat })),
+      notes: state.notes.map(note => ({ ...note })),
+      laneCount: state.laneCount,
+      beatOffset: state.beatOffset
+    };
   }
 
   function snapshot() {
-    state.history.push(cloneBeats());
+    state.history.push(cloneEditorState());
     if (state.history.length > 80) state.history.shift();
     state.future = [];
     updateHistoryButtons();
   }
 
-  function restoreBeats(beats) {
-    state.beats = beats.map(beat => ({ ...beat }));
+  function restoreEditorState(saved) {
+    const normalized = Array.isArray(saved) ? { beats: saved, notes: [], laneCount: state.laneCount, beatOffset: state.beatOffset } : saved;
+    state.beats = (normalized.beats || []).map(beat => ({ ...beat }));
+    state.notes = (normalized.notes || []).map(note => ({ ...note }));
+    state.laneCount = Math.max(2, Math.min(6, Number(normalized.laneCount) || 4));
+    state.beatOffset = Number(normalized.beatOffset) || 0;
+    els.laneCount.value = String(state.laneCount);
     if (!state.beats.some(beat => beat.id === state.selectedId)) state.selectedId = null;
+    if (!state.notes.some(note => note.id === state.selectedNoteId)) state.selectedNoteId = null;
     renderAll();
     markDirty();
   }
 
   function undo() {
     if (!state.history.length) return;
-    state.future.push(cloneBeats());
-    restoreBeats(state.history.pop());
+    state.future.push(cloneEditorState());
+    restoreEditorState(state.history.pop());
   }
 
   function redo() {
     if (!state.future.length) return;
-    state.history.push(cloneBeats());
-    restoreBeats(state.future.pop());
+    state.history.push(cloneEditorState());
+    restoreEditorState(state.future.pop());
   }
 
   function updateHistoryButtons() {
@@ -102,10 +128,13 @@
 
   function projectData(includeVersion = true) {
     return {
-      ...(includeVersion ? { format: 'rhythm-chart-studio', version: 1 } : {}),
+      ...(includeVersion ? { format: 'rhythm-chart-studio', version: 2 } : {}),
       name: els.projectName.value.trim() || '未命名谱面',
       audio: state.audioFile ? { name: state.audioFile.name, size: state.audioFile.size, duration: els.audio.duration || 0 } : null,
       bpm: Number(state.bpm.toFixed(2)),
+      beatOffset: Number(state.beatOffset.toFixed(3)),
+      laneCount: state.laneCount,
+      snapDivision: Number(els.snapDivision.value),
       duration: Number((els.audio.duration || 0).toFixed(3)),
       createdWith: '节拍工坊',
       beats: state.beats.map((beat, index) => ({
@@ -114,6 +143,13 @@
         type: beat.type,
         strength: beat.strength,
         note: beat.note || ''
+      })),
+      notes: state.notes.map((note, index) => ({
+        index: index + 1,
+        time: Number(note.time.toFixed(3)),
+        lane: note.lane,
+        type: note.type,
+        ...(note.type === 'hold' ? { endTime: Number(note.endTime.toFixed(3)) } : {})
       }))
     };
   }
@@ -130,6 +166,8 @@
 
   function enableAudioControls(enabled) {
     [els.analyzeBtn, els.playBtn, els.stopBtn, els.backBtn, els.forwardBtn, els.zoom, els.fitBtn, els.addBeatBtn].forEach(el => el.disabled = !enabled);
+    els.generateChartBtn.disabled = !enabled || !state.beats.length;
+    els.testModeBtn.disabled = !enabled || !state.notes.length;
   }
 
   async function loadAudioFile(file) {
@@ -137,7 +175,7 @@
       toast('请选择 MP3、WAV、OGG、M4A 等音乐文件', 'error');
       return;
     }
-    if (state.beats.length && !confirm('更换音乐会清空当前节拍，继续吗？')) {
+    if ((state.beats.length || state.notes.length) && !confirm('更换音乐会清空当前节拍和轨道音符，继续吗？')) {
       els.audioFile.value = '';
       return;
     }
@@ -158,7 +196,9 @@
       state.waveform = buildWaveform(state.audioBuffer, 2400);
       await waitForMetadata();
       state.beats = [];
+      state.notes = [];
       state.selectedId = null;
+      state.selectedNoteId = null;
       state.history = [];
       state.future = [];
       state.bpm = 0;
@@ -220,71 +260,36 @@
 
   async function analyzeAudio() {
     if (!state.audioBuffer) return;
-    showProgress('正在寻找明显的鼓点和节奏规律…', 10);
+    showProgress('正在分离鼓点和持续声音…', 10);
     await new Promise(resolve => setTimeout(resolve, 40));
     try {
-      const channel = state.audioBuffer.getChannelData(0);
       const sampleRate = state.audioBuffer.sampleRate;
-      const hop = 1024;
-      const frame = 2048;
-      const energies = [];
-      for (let i = 0; i + frame < channel.length; i += hop) {
-        let sum = 0;
-        for (let j = 0; j < frame; j += 4) {
-          const v = channel[i + j];
-          sum += v * v;
-        }
-        energies.push(Math.sqrt(sum / (frame / 4)));
-      }
-      showProgress('正在判断哪些声音像节拍…', 38);
+      const hop = 512;
+      const envelope = buildOnsetEnvelope(state.audioBuffer, hop);
+      const frameRate = sampleRate / hop;
+      showProgress('正在寻找稳定的重复间隔…', 38);
       await new Promise(resolve => setTimeout(resolve, 30));
-      const novelty = energies.map((energy, i) => Math.max(0, energy - (energies[i - 1] || energy)));
-      const smooth = novelty.map((_, i) => {
-        let total = 0;
-        for (let j = Math.max(0, i - 1); j <= Math.min(novelty.length - 1, i + 1); j++) total += novelty[j];
-        return total / 3;
-      });
-      const sorted = [...smooth].sort((a, b) => a - b);
-      const sensitivity = Number(els.sensitivity.value) / 100;
-      const quantile = 0.93 - sensitivity * 0.22;
-      const threshold = sorted[Math.floor(sorted.length * quantile)] || 0;
-      const minGapFrames = Math.max(5, Math.floor((0.20 * sampleRate) / hop));
-      const peaks = [];
-      let last = -minGapFrames;
-      for (let i = 2; i < smooth.length - 2; i++) {
-        if (smooth[i] >= threshold && smooth[i] >= smooth[i - 1] && smooth[i] > smooth[i + 1]) {
-          if (i - last >= minGapFrames) {
-            peaks.push({ frame: i, value: smooth[i] });
-            last = i;
-          } else if (smooth[i] > peaks[peaks.length - 1].value) {
-            peaks[peaks.length - 1] = { frame: i, value: smooth[i] };
-            last = i;
-          }
-        }
-      }
-      showProgress('正在估算歌曲速度…', 66);
+      const tempo = estimateTempo(envelope, frameRate);
+      const bpm = tempo.bpm;
+      const interval = 60 / bpm;
+      const phase = findBeatPhase(envelope, frameRate, interval);
+      state.beatOffset = phase;
+      showProgress('正在把候选声音对齐到节拍网格…', 66);
       await new Promise(resolve => setTimeout(resolve, 30));
-      const peakTimes = peaks.map(p => p.frame * hop / sampleRate);
-      const bpm = estimateBpm(peakTimes);
-      const maxValue = Math.max(...peaks.map(p => p.value), 0.001);
-      const detected = peaks.map((peak, index) => ({
-        id: makeId(),
-        time: Number((peak.frame * hop / sampleRate).toFixed(3)),
-        type: (index % 4 === 0 && peak.value > maxValue * 0.52) ? 'accent' : 'beat',
-        strength: Math.round(45 + (peak.value / maxValue) * 55),
-        note: ''
-      }));
+      const density = els.analysisDensity.value;
+      const detected = buildBeatGrid(envelope, frameRate, bpm, phase, state.audioBuffer.duration, density, Number(els.sensitivity.value));
       snapshot();
       state.beats = dedupeBeats(detected);
       state.bpm = bpm;
       state.selectedId = null;
       els.bpmValue.textContent = bpm ? bpm.toFixed(1) : '—';
       els.analysisResult.classList.remove('hidden');
-      showProgress(`找到了 ${state.beats.length} 个候选节拍`, 100);
+      showProgress(`整理出 ${state.beats.length} 个规则节拍`, 100);
       renderAll();
       markDirty();
       setTimeout(hideProgress, 260);
-      toast(`分析完成：找到 ${state.beats.length} 个候选节拍`);
+      const densityLabel = density === 'concise' ? '精简' : density === 'standard' ? '标准' : '细致';
+      toast(`分析完成：${bpm.toFixed(1)} BPM，${densityLabel}模式保留 ${state.beats.length} 个节拍`);
     } catch (error) {
       hideProgress();
       console.error(error);
@@ -292,21 +297,136 @@
     }
   }
 
-  function estimateBpm(times) {
-    if (times.length < 3) return 0;
-    const bins = new Map();
-    for (let i = 0; i < times.length; i++) {
-      for (let j = i + 1; j < Math.min(times.length, i + 8); j++) {
-        let interval = times[j] - times[i];
-        if (interval <= 0) continue;
-        let bpm = 60 / interval;
-        while (bpm < 70) bpm *= 2;
-        while (bpm > 190) bpm /= 2;
-        const key = Math.round(bpm * 2) / 2;
-        bins.set(key, (bins.get(key) || 0) + 1 / (j - i));
+  function buildOnsetEnvelope(buffer, hop) {
+    const channels = Array.from({ length: Math.min(2, buffer.numberOfChannels) }, (_, i) => buffer.getChannelData(i));
+    const frame = 1024;
+    const rms = [];
+    const brightness = [];
+    for (let start = 0; start + frame < buffer.length; start += hop) {
+      let energy = 0;
+      let high = 0;
+      for (let j = 4; j < frame; j += 4) {
+        let sample = 0;
+        let previous = 0;
+        for (const channel of channels) {
+          sample += channel[start + j];
+          previous += channel[start + j - 4];
+        }
+        sample /= channels.length;
+        previous /= channels.length;
+        energy += sample * sample;
+        high += Math.abs(sample - previous);
       }
+      rms.push(Math.sqrt(energy / (frame / 4)));
+      brightness.push(high / (frame / 4));
     }
-    return [...bins.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || 0;
+    const novelty = rms.map((value, i) => {
+      if (!i) return 0;
+      const energyRise = Math.max(0, value - rms[i - 1]);
+      const brightRise = Math.max(0, brightness[i] - brightness[i - 1]);
+      return energyRise + brightRise * .65;
+    });
+    const cleaned = novelty.map((value, i) => {
+      let local = 0;
+      let count = 0;
+      for (let j = Math.max(0, i - 14); j <= Math.min(novelty.length - 1, i + 14); j++) { local += novelty[j]; count++; }
+      const adaptive = local / Math.max(1, count);
+      return Math.max(0, value - adaptive * .72);
+    });
+    const smooth = cleaned.map((_, i) => ((cleaned[i - 1] || 0) + cleaned[i] * 2 + (cleaned[i + 1] || 0)) / 4);
+    const max = Math.max(...smooth, .0001);
+    return smooth.map(value => value / max);
+  }
+
+  function estimateTempo(envelope, frameRate) {
+    let best = { bpm: 120, score: -Infinity };
+    for (let bpm = 65; bpm <= 180; bpm += .25) {
+      const lag = Math.round(frameRate * 60 / bpm);
+      let score = 0;
+      let weight = 0;
+      for (let i = lag; i < envelope.length; i++) {
+        const emphasis = 1 + envelope[i] + envelope[i - lag];
+        score += envelope[i] * envelope[i - lag] * emphasis;
+        weight += emphasis;
+      }
+      const doubleLag = lag * 2;
+      if (doubleLag < envelope.length) {
+        for (let i = doubleLag; i < envelope.length; i += 2) score += envelope[i] * envelope[i - doubleLag] * .2;
+      }
+      score /= Math.max(1, weight);
+      const centerPrior = 1 - Math.min(.12, Math.abs(bpm - 120) / 1200);
+      score *= centerPrior;
+      if (score > best.score) best = { bpm, score };
+    }
+    return best;
+  }
+
+  function findBeatPhase(envelope, frameRate, interval) {
+    const period = Math.max(1, Math.round(interval * frameRate));
+    let bestPhase = 0;
+    let bestScore = -1;
+    for (let phase = 0; phase < period; phase++) {
+      let score = 0;
+      for (let i = phase; i < envelope.length; i += period) {
+        score += Math.max(envelope[i - 1] || 0, envelope[i] || 0, envelope[i + 1] || 0);
+      }
+      if (score > bestScore) { bestScore = score; bestPhase = phase; }
+    }
+    return bestPhase / frameRate;
+  }
+
+  function envelopeAt(envelope, frameRate, time, radiusSeconds = .055) {
+    const center = Math.round(time * frameRate);
+    const radius = Math.max(1, Math.round(radiusSeconds * frameRate));
+    let best = { value: 0, frame: center };
+    for (let i = Math.max(0, center - radius); i <= Math.min(envelope.length - 1, center + radius); i++) {
+      if (envelope[i] > best.value) best = { value: envelope[i], frame: i };
+    }
+    return best;
+  }
+
+  function buildBeatGrid(envelope, frameRate, bpm, phase, duration, density, sensitivity) {
+    const interval = 60 / bpm;
+    const candidates = [];
+    for (let time = phase; time < duration; time += interval) {
+      const onset = envelopeAt(envelope, frameRate, time);
+      candidates.push({ gridTime: time, refinedTime: onset.frame / frameRate, strength: onset.value });
+    }
+    if (!candidates.length) return [];
+    const values = candidates.map(item => item.strength).sort((a, b) => a - b);
+    const weakCut = values[Math.floor(values.length * Math.max(.05, .42 - sensitivity / 240))] || 0;
+    let selected = candidates;
+    if (density === 'concise') {
+      const evenScore = candidates.filter((_, i) => i % 2 === 0).reduce((sum, item) => sum + item.strength, 0);
+      const oddScore = candidates.filter((_, i) => i % 2 === 1).reduce((sum, item) => sum + item.strength, 0);
+      const parity = oddScore > evenScore ? 1 : 0;
+      selected = candidates.filter((_, i) => i % 2 === parity);
+    } else if (density === 'detailed') {
+      const expanded = [];
+      candidates.forEach((item, i) => {
+        expanded.push(item);
+        if (i < candidates.length - 1) {
+          const halfTime = item.gridTime + interval / 2;
+          const onset = envelopeAt(envelope, frameRate, halfTime, .04);
+          if (onset.value >= weakCut * 1.15) expanded.push({ gridTime: halfTime, refinedTime: onset.frame / frameRate, strength: onset.value, half: true });
+        }
+      });
+      selected = expanded;
+    }
+    const maxStrength = Math.max(...selected.map(item => item.strength), .001);
+    return selected
+      .filter((item, i) => i === 0 || item.strength >= weakCut * .55)
+      .map((item, index) => {
+        const refinement = Math.abs(item.refinedTime - item.gridTime) <= .07 ? item.refinedTime : item.gridTime;
+        return {
+          id: makeId(),
+          time: Number(Math.max(0, refinement).toFixed(3)),
+          type: !item.half && index % (density === 'concise' ? 2 : 4) === 0 ? 'accent' : 'beat',
+          strength: Math.round(45 + item.strength / maxStrength * 55),
+          confidence: Number((item.strength / maxStrength).toFixed(2)),
+          note: ''
+        };
+      });
   }
 
   function dedupeBeats(beats) {
@@ -354,6 +474,7 @@
 
   function renderAll() {
     renderTimeline();
+    renderLaneEditor();
     renderBeatList();
     renderInspector();
     updateCounts();
@@ -364,8 +485,13 @@
     els.beatCount.textContent = state.beats.length;
     els.countPill.textContent = `${state.beats.length} 个`;
     els.tableEmpty.classList.toggle('hidden', state.beats.length > 0);
-    els.exportCsvBtn.disabled = !state.beats.length;
-    els.exportJsonBtn.disabled = !state.beats.length;
+    els.noteCount.textContent = state.notes.length;
+    els.laneEmpty.classList.toggle('hidden', state.notes.length > 0);
+    els.clearNotesBtn.disabled = !state.notes.length;
+    els.testModeBtn.disabled = !state.notes.length || !state.audioBuffer;
+    els.generateChartBtn.disabled = !state.beats.length || !state.audioBuffer;
+    els.exportCsvBtn.disabled = !state.beats.length && !state.notes.length;
+    els.exportJsonBtn.disabled = !state.beats.length && !state.notes.length;
   }
 
   function viewDuration() {
@@ -396,7 +522,12 @@
     els.waveform.width = Math.max(1, Math.floor(rect.width * dpr));
     els.waveform.height = Math.max(1, Math.floor(rect.height * dpr));
     canvasCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const laneRect = els.laneCanvas.parentElement.getBoundingClientRect();
+    els.laneCanvas.width = Math.max(1, Math.floor(laneRect.width * dpr));
+    els.laneCanvas.height = Math.max(1, Math.floor(laneRect.height * dpr));
+    laneCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
     renderTimeline();
+    renderLaneEditor();
   }
 
   function renderTimeline() {
@@ -467,6 +598,236 @@
         canvasCtx.fillStyle = '#fff'; canvasCtx.beginPath(); canvasCtx.arc(playX, 9, 3, 0, Math.PI * 2); canvasCtx.fill();
       }
     }
+  }
+
+  function beatDuration() {
+    return state.bpm > 0 ? 60 / state.bpm : .5;
+  }
+
+  function snapTime(time) {
+    const division = Number(els.snapDivision.value);
+    if (!division || !state.bpm) return Math.max(0, time);
+    const unit = beatDuration() / division;
+    return Math.max(0, state.beatOffset + Math.round((time - state.beatOffset) / unit) * unit);
+  }
+
+  function laneWindow(height) {
+    const judgementY = height - 48;
+    const secondsAhead = Math.max(3, beatDuration() * 8);
+    const pixelsPerSecond = (judgementY - 28) / secondsAhead;
+    return { judgementY, secondsAhead, pixelsPerSecond, now: els.audio.currentTime || 0 };
+  }
+
+  function laneTimeToY(time, height) {
+    const view = laneWindow(height);
+    return view.judgementY - (time - view.now) * view.pixelsPerSecond;
+  }
+
+  function laneYToTime(y, height) {
+    const view = laneWindow(height);
+    return view.now + (view.judgementY - y) / view.pixelsPerSecond;
+  }
+
+  function renderLaneKeys() {
+    const keys = KEY_LAYOUTS[state.laneCount];
+    els.laneKeys.style.setProperty('--lanes', state.laneCount);
+    const layoutSignature = `${state.laneCount}:${keys.join(',')}`;
+    if (els.laneKeys.dataset.layout !== layoutSignature) {
+      els.laneKeys.innerHTML = '';
+      keys.forEach((key, lane) => {
+        const node = document.createElement('span');
+        node.className = 'lane-key';
+        node.textContent = key === 'Space' ? '空格' : key;
+        node.title = `第 ${lane + 1} 轨：${node.textContent}`;
+        els.laneKeys.append(node);
+      });
+      els.laneKeys.dataset.layout = layoutSignature;
+      els.laneModeHelp.textContent = `当前键位：${keys.map(key => key === 'Space' ? '空格' : key).join(' ')}`;
+    }
+    [...els.laneKeys.children].forEach((node, lane) => node.classList.toggle('active', state.activeLanes.has(lane)));
+  }
+
+  function renderLaneEditor() {
+    const rect = els.laneCanvas.parentElement.getBoundingClientRect();
+    const width = rect.width;
+    const height = rect.height;
+    if (!width || !height) return;
+    laneCtx.clearRect(0, 0, width, height);
+    laneCtx.fillStyle = '#090e13';
+    laneCtx.fillRect(0, 0, width, height);
+    const laneWidth = width / state.laneCount;
+    const view = laneWindow(height);
+
+    for (let lane = 0; lane < state.laneCount; lane++) {
+      laneCtx.fillStyle = lane % 2 ? 'rgba(255,255,255,.018)' : 'rgba(103,232,249,.018)';
+      laneCtx.fillRect(lane * laneWidth, 0, laneWidth, height);
+      laneCtx.strokeStyle = 'rgba(137,149,162,.25)';
+      laneCtx.beginPath(); laneCtx.moveTo(lane * laneWidth + .5, 0); laneCtx.lineTo(lane * laneWidth + .5, height); laneCtx.stroke();
+      if (state.activeLanes.has(lane)) {
+        laneCtx.fillStyle = 'rgba(255,212,59,.08)';
+        laneCtx.fillRect(lane * laneWidth, 0, laneWidth, height);
+      }
+    }
+    laneCtx.strokeStyle = 'rgba(137,149,162,.25)';
+    laneCtx.beginPath(); laneCtx.moveTo(width - .5, 0); laneCtx.lineTo(width - .5, height); laneCtx.stroke();
+
+    if (state.bpm) {
+      const division = Math.max(1, Number(els.snapDivision.value) || 1);
+      const unit = beatDuration() / division;
+      const topTime = view.now + view.secondsAhead;
+      let time = state.beatOffset + Math.floor((view.now - state.beatOffset) / unit) * unit;
+      for (; time <= topTime; time += unit) {
+        const y = laneTimeToY(time, height);
+        const beatIndex = Math.round((time - state.beatOffset) / beatDuration());
+        const isMain = Math.abs((time - state.beatOffset) / beatDuration() - beatIndex) < .03;
+        laneCtx.strokeStyle = isMain ? 'rgba(255,212,59,.19)' : 'rgba(137,149,162,.09)';
+        laneCtx.lineWidth = isMain && beatIndex % 4 === 0 ? 1.5 : 1;
+        laneCtx.beginPath(); laneCtx.moveTo(0, y); laneCtx.lineTo(width, y); laneCtx.stroke();
+      }
+    }
+
+    laneCtx.strokeStyle = state.testMode ? '#67e8f9' : '#ffd43b';
+    laneCtx.lineWidth = 2;
+    laneCtx.beginPath(); laneCtx.moveTo(0, view.judgementY); laneCtx.lineTo(width, view.judgementY); laneCtx.stroke();
+    laneCtx.fillStyle = state.testMode ? '#67e8f9' : '#ffd43b';
+    laneCtx.font = '700 10px ui-monospace, monospace';
+    laneCtx.fillText(state.testMode ? 'JUDGE' : 'NOW', 7, view.judgementY - 7);
+
+    state.notes.forEach(note => {
+      if (state.testMode && state.hitNotes.has(note.id)) return;
+      const y = laneTimeToY(note.time, height);
+      const endY = note.type === 'hold' ? laneTimeToY(note.endTime, height) : y;
+      if (Math.max(y, endY) < -30 || Math.min(y, endY) > height + 30) return;
+      const x = note.lane * laneWidth + 7;
+      const w = Math.max(8, laneWidth - 14);
+      const selected = note.id === state.selectedNoteId;
+      if (note.type === 'hold') {
+        laneCtx.fillStyle = selected ? 'rgba(255,100,116,.55)' : 'rgba(103,232,249,.34)';
+        laneCtx.fillRect(x + w * .24, endY, w * .52, Math.max(8, y - endY));
+      }
+      laneCtx.fillStyle = selected ? '#ff6474' : note.type === 'hold' ? '#67e8f9' : '#ffd43b';
+      laneCtx.shadowColor = laneCtx.fillStyle;
+      laneCtx.shadowBlur = selected ? 13 : 5;
+      laneCtx.fillRect(x, y - 6, w, 12);
+      laneCtx.shadowBlur = 0;
+    });
+    renderLaneKeys();
+  }
+
+  function addLaneNote(lane, time, source = 'pointer') {
+    if (!state.audioBuffer || lane < 0 || lane >= state.laneCount) return;
+    const snapped = source === 'key' ? Math.max(0, time) : snapTime(time);
+    if (state.notes.some(note => note.lane === lane && Math.abs(note.time - snapped) < .035)) return;
+    snapshot();
+    const type = els.noteType.value;
+    const note = { id: makeId(), lane, time: Number(snapped.toFixed(3)), type };
+    if (type === 'hold') note.endTime = Number(Math.min(els.audio.duration || Infinity, snapped + beatDuration() * Number(els.holdLength.value)).toFixed(3));
+    state.notes.push(note);
+    state.notes.sort((a, b) => a.time - b.time || a.lane - b.lane);
+    state.selectedNoteId = note.id;
+    renderAll();
+    markDirty();
+  }
+
+  function deleteLaneNote(id = state.selectedNoteId) {
+    const index = state.notes.findIndex(note => note.id === id);
+    if (index < 0) return;
+    snapshot();
+    state.notes.splice(index, 1);
+    state.selectedNoteId = null;
+    renderAll();
+    markDirty();
+  }
+
+  function lanePointerInfo(event) {
+    const rect = els.laneCanvas.getBoundingClientRect();
+    const x = Math.max(0, Math.min(rect.width - .01, event.clientX - rect.left));
+    const y = Math.max(0, Math.min(rect.height, event.clientY - rect.top));
+    return { x, y, width: rect.width, height: rect.height, lane: Math.floor(x / (rect.width / state.laneCount)), time: laneYToTime(y, rect.height) };
+  }
+
+  function nearestLaneNote(lane, time) {
+    const tolerance = Math.max(.08, beatDuration() / 5);
+    return state.notes
+      .filter(note => note.lane === lane && Math.abs(note.time - time) <= tolerance)
+      .sort((a, b) => Math.abs(a.time - time) - Math.abs(b.time - time))[0] || null;
+  }
+
+  function handleLanePointer(event) {
+    if (!state.audioBuffer || state.testMode) return;
+    const point = lanePointerInfo(event);
+    const existing = nearestLaneNote(point.lane, point.time);
+    if (existing) {
+      state.selectedNoteId = existing.id;
+      if (event.button === 2) deleteLaneNote(existing.id);
+      else { els.audio.currentTime = existing.time; renderAll(); }
+      return;
+    }
+    if (event.button !== 2 && point.time >= 0 && point.time <= els.audio.duration) addLaneNote(point.lane, point.time);
+  }
+
+  function generateBaseChart() {
+    if (!state.beats.length) return;
+    if (state.notes.length && !confirm('重新生成会替换已有轨道音符，继续吗？')) return;
+    snapshot();
+    const lanes = state.laneCount;
+    const pattern = [];
+    for (let i = 0; i < Math.ceil(lanes / 2); i++) {
+      if (i < lanes) pattern.push(i);
+      const mirror = lanes - 1 - i;
+      if (mirror !== i) pattern.push(mirror);
+    }
+    state.notes = [];
+    state.beats.forEach((beat, index) => {
+      const lane = pattern[index % pattern.length];
+      state.notes.push({ id: makeId(), lane, time: beat.time, type: 'tap' });
+      if (beat.type === 'accent' && beat.strength >= 88 && lanes >= 4) {
+        const mirror = lanes - 1 - lane;
+        if (mirror !== lane) state.notes.push({ id: makeId(), lane: mirror, time: beat.time, type: 'tap' });
+      }
+    });
+    state.notes.sort((a, b) => a.time - b.time || a.lane - b.lane);
+    state.selectedNoteId = null;
+    renderAll();
+    markDirty();
+    toast(`已生成 ${state.laneCount} 轨基础谱面，共 ${state.notes.length} 个音符`);
+  }
+
+  function setLaneActive(lane) {
+    state.activeLanes.add(lane);
+    renderLaneEditor();
+    setTimeout(() => { state.activeLanes.delete(lane); renderLaneEditor(); }, 110);
+  }
+
+  function showJudgement(text, type = 'perfect') {
+    els.judgementPop.textContent = text;
+    els.judgementPop.style.color = type === 'perfect' ? '#ffd43b' : type === 'good' ? '#67e8f9' : '#ff6474';
+    els.judgementPop.classList.add('hidden');
+    void els.judgementPop.offsetWidth;
+    els.judgementPop.classList.remove('hidden');
+    setTimeout(() => els.judgementPop.classList.add('hidden'), 460);
+  }
+
+  function judgeLane(lane) {
+    const now = els.audio.currentTime;
+    const note = state.notes
+      .filter(item => item.lane === lane && !state.hitNotes.has(item.id) && Math.abs(item.time - now) <= .18)
+      .sort((a, b) => Math.abs(a.time - now) - Math.abs(b.time - now))[0];
+    if (!note) { showJudgement('MISS', 'miss'); return; }
+    const delta = Math.abs(note.time - now);
+    state.hitNotes.add(note.id);
+    showJudgement(delta <= .065 ? 'PERFECT' : 'GOOD', delta <= .065 ? 'perfect' : 'good');
+    renderLaneEditor();
+  }
+
+  function toggleTestMode() {
+    if (!state.notes.length || !state.audioBuffer) return;
+    state.testMode = !state.testMode;
+    state.hitNotes.clear();
+    els.testModeBtn.textContent = state.testMode ? '■ 退出试玩' : '▷ 试玩模式';
+    els.laneCanvas.style.cursor = state.testMode ? 'default' : 'crosshair';
+    toast(state.testMode ? `试玩已开启，请使用 ${KEY_LAYOUTS[state.laneCount].map(k => k === 'Space' ? '空格' : k).join(' ')} 击打音符` : '已退出试玩模式');
+    renderLaneEditor();
   }
 
   function renderBeatList() {
@@ -574,6 +935,7 @@
     els.currentTime.textContent = formatTime(els.audio.currentTime);
     keepPlayheadVisible();
     renderTimeline();
+    renderLaneEditor();
     if (!els.audio.paused) {
       maybeClickMetronome();
       animationFrame = requestAnimationFrame(animationLoop);
@@ -613,7 +975,7 @@
     try {
       const data = JSON.parse(await file.text());
       if (!Array.isArray(data.beats)) throw new Error('missing beats');
-      if (state.beats.length && !confirm('打开工程会替换当前节拍，继续吗？')) return;
+      if ((state.beats.length || state.notes.length) && !confirm('打开工程会替换当前节拍和轨道音符，继续吗？')) return;
       snapshot();
       state.beats = data.beats.map(beat => ({
         id: makeId(), time: Number(beat.time) || 0,
@@ -621,6 +983,17 @@
         strength: Math.max(10, Math.min(100, Number(beat.strength) || 80)), note: String(beat.note || '')
       })).sort((a, b) => a.time - b.time);
       state.bpm = Number(data.bpm) || 0;
+      state.beatOffset = Number(data.beatOffset) || 0;
+      state.laneCount = Math.max(2, Math.min(6, Number(data.laneCount) || 4));
+      state.notes = Array.isArray(data.notes) ? data.notes.map(note => ({
+        id: makeId(),
+        time: Number(note.time) || 0,
+        lane: Math.max(0, Math.min(state.laneCount - 1, Number(note.lane) || 0)),
+        type: note.type === 'hold' ? 'hold' : 'tap',
+        ...(note.type === 'hold' ? { endTime: Math.max(Number(note.time) || 0, Number(note.endTime) || Number(note.time) || 0) } : {})
+      })).sort((a, b) => a.time - b.time || a.lane - b.lane) : [];
+      els.laneCount.value = String(state.laneCount);
+      if ([0,1,2,4].includes(Number(data.snapDivision))) els.snapDivision.value = String(data.snapDivision);
       els.projectName.value = data.name || file.name.replace(/\.rhythm\.json$|\.json$/i, '');
       els.bpmValue.textContent = state.bpm ? state.bpm.toFixed(1) : '—';
       els.analysisResult.classList.remove('hidden');
@@ -628,14 +1001,18 @@
       renderAll();
       markDirty();
       const audioHint = data.audio?.name ? ` 请再载入音乐“${data.audio.name}”。` : '';
-      toast(`工程已打开，共 ${state.beats.length} 个节拍。${audioHint}`);
+      toast(`工程已打开：${state.beats.length} 个节拍、${state.notes.length} 个轨道音符。${audioHint}`);
     } catch (error) {
       toast('这个文件不是有效的节拍工程', 'error');
     }
   }
 
   function exportCsv() {
-    const rows = [['index','time_seconds','time_display','type','strength','note'], ...state.beats.map((beat, i) => [i + 1, beat.time.toFixed(3), formatTime(beat.time), beat.type, beat.strength, beat.note])];
+    const rows = [
+      ['record_kind','index','time_seconds','time_display','lane','type','end_time','strength','note'],
+      ...state.beats.map((beat, i) => ['beat', i + 1, beat.time.toFixed(3), formatTime(beat.time), '', beat.type, '', beat.strength, beat.note]),
+      ...state.notes.map((note, i) => ['game_note', i + 1, note.time.toFixed(3), formatTime(note.time), note.lane, note.type, note.type === 'hold' ? note.endTime.toFixed(3) : '', '', ''])
+    ];
     const csv = rows.map(row => row.map(value => `"${String(value).replace(/"/g, '""')}"`).join(',')).join('\r\n');
     downloadFile(`${els.projectName.value || '谱面'}.csv`, '\ufeff' + csv, 'text/csv;charset=utf-8');
     toast('CSV 已导出');
@@ -644,6 +1021,7 @@
   function exportGameJson() {
     const data = projectData();
     data.beats = data.beats.map(({ index, time, type, strength, note }) => ({ t: Math.round(time * 1000), type, strength, ...(note ? { note } : {}) }));
+    data.notes = data.notes.map(({ index, time, endTime, lane, type }) => ({ t: Math.round(time * 1000), lane, type, ...(type === 'hold' ? { end: Math.round(endTime * 1000) } : {}) }));
     data.timeUnit = 'milliseconds';
     downloadFile(`${els.projectName.value || '谱面'}.game.json`, JSON.stringify(data, null, 2), 'application/json');
     toast('游戏 JSON 已导出，时间单位是毫秒');
@@ -689,6 +1067,41 @@
           markDirty();
           return `Chart renamed to ${els.projectName.value}.`;
         }
+      }),
+      register({
+        name: 'add_lane_note',
+        description: 'Add a tap or hold game note to an exact lane and time in the current 2-to-6 lane chart.',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            lane: { type: 'integer', minimum: 0, maximum: 5, description: 'Zero-based lane index.' },
+            time: { type: 'number', minimum: 0, description: 'Note time in seconds.' },
+            type: { type: 'string', enum: ['tap', 'hold'] }
+          },
+          required: ['lane', 'time']
+        },
+        annotations: { readOnlyHint: false, consequentialHint: false, untrustedContentHint: false },
+        execute: async ({ lane, time, type }) => {
+          if (!state.audioBuffer) return 'Load an audio file before adding game notes.';
+          if (lane < 0 || lane >= state.laneCount) return `Lane must be between 0 and ${state.laneCount - 1}.`;
+          const previous = els.noteType.value;
+          els.noteType.value = type === 'hold' ? 'hold' : 'tap';
+          addLaneNote(Number(lane), Number(time));
+          els.noteType.value = previous;
+          return `Added a ${type || 'tap'} note to lane ${lane} at ${Number(time).toFixed(3)} seconds.`;
+        }
+      }),
+      register({
+        name: 'generate_base_chart',
+        description: 'Generate a playable base lane chart from the currently detected beat markers.',
+        inputSchema: { type: 'object', properties: {} },
+        annotations: { readOnlyHint: false, consequentialHint: false, untrustedContentHint: false },
+        execute: async () => {
+          if (!state.audioBuffer || !state.beats.length) return 'Analyze an audio file before generating a lane chart.';
+          if (state.notes.length) return 'The chart already has game notes. Clear them before generating a replacement.';
+          generateBaseChart();
+          return `Generated ${state.notes.length} notes across ${state.laneCount} lanes.`;
+        }
       })
     ]);
   }
@@ -707,9 +1120,19 @@
   els.backBtn.addEventListener('click', () => els.audio.currentTime = Math.max(0, els.audio.currentTime - 5));
   els.forwardBtn.addEventListener('click', () => els.audio.currentTime = Math.min(els.audio.duration, els.audio.currentTime + 5));
   els.playbackRate.addEventListener('change', () => els.audio.playbackRate = Number(els.playbackRate.value));
-  els.audio.addEventListener('play', () => { els.playIcon.textContent = 'Ⅱ'; cancelAnimationFrame(animationFrame); animationLoop(); });
-  els.audio.addEventListener('pause', () => { els.playIcon.textContent = '▶'; cancelAnimationFrame(animationFrame); renderTimeline(); });
-  els.audio.addEventListener('ended', () => { els.playIcon.textContent = '▶'; state.lastMetronomeBeat = null; });
+  els.audio.addEventListener('play', () => {
+    if (state.testMode && els.audio.currentTime < .05) state.hitNotes.clear();
+    els.playIcon.textContent = 'Ⅱ';
+    cancelAnimationFrame(animationFrame);
+    animationLoop();
+  });
+  els.audio.addEventListener('pause', () => { els.playIcon.textContent = '▶'; cancelAnimationFrame(animationFrame); renderTimeline(); renderLaneEditor(); });
+  els.audio.addEventListener('ended', () => {
+    els.playIcon.textContent = '▶';
+    state.lastMetronomeBeat = null;
+    state.hitNotes.clear();
+    renderLaneEditor();
+  });
   els.audio.addEventListener('seeked', () => { state.lastMetronomeBeat = null; els.currentTime.textContent = formatTime(els.audio.currentTime); renderTimeline(); });
   els.zoom.addEventListener('input', () => { state.zoom = Number(els.zoom.value); state.viewStart = Math.max(0, Math.min(els.audio.currentTime - viewDuration() / 2, els.audio.duration - viewDuration())); renderTimeline(); });
   els.fitBtn.addEventListener('click', () => { state.zoom = 1; state.viewStart = 0; els.zoom.value = '1'; renderTimeline(); });
@@ -756,6 +1179,29 @@
   els.exportCsvBtn.addEventListener('click', exportCsv);
   els.exportJsonBtn.addEventListener('click', exportGameJson);
   els.projectName.addEventListener('input', markDirty);
+  els.laneCount.addEventListener('change', () => {
+    const next = Number(els.laneCount.value);
+    const outOfRange = state.notes.filter(note => note.lane >= next).length;
+    if (outOfRange && !confirm(`切换到 ${next} 轨会把 ${outOfRange} 个超出范围的音符移动到最后一轨，继续吗？`)) {
+      els.laneCount.value = String(state.laneCount);
+      return;
+    }
+    snapshot();
+    state.laneCount = next;
+    state.notes.forEach(note => { note.lane = Math.min(note.lane, next - 1); });
+    renderAll();
+    markDirty();
+  });
+  els.snapDivision.addEventListener('change', () => { renderLaneEditor(); markDirty(); });
+  els.noteType.addEventListener('change', () => els.holdLengthWrap.classList.toggle('hidden', els.noteType.value !== 'hold'));
+  els.generateChartBtn.addEventListener('click', generateBaseChart);
+  els.clearNotesBtn.addEventListener('click', () => {
+    if (!state.notes.length || !confirm(`确定清空全部 ${state.notes.length} 个轨道音符吗？节拍分析结果会保留。`)) return;
+    snapshot(); state.notes = []; state.selectedNoteId = null; renderAll(); markDirty();
+  });
+  els.testModeBtn.addEventListener('click', toggleTestMode);
+  els.laneCanvas.addEventListener('pointerdown', handleLanePointer);
+  els.laneCanvas.addEventListener('contextmenu', event => { event.preventDefault(); handleLanePointer(event); });
 
   document.addEventListener('keydown', event => {
     if (event.target.matches('input,select,textarea')) return;
@@ -763,8 +1209,18 @@
     if (mod && event.key.toLowerCase() === 'z') { event.preventDefault(); event.shiftKey ? redo() : undo(); return; }
     if (mod && event.key.toLowerCase() === 'y') { event.preventDefault(); redo(); return; }
     if (mod && event.key.toLowerCase() === 's') { event.preventDefault(); saveProject(); return; }
+    const laneKeys = KEY_LAYOUTS[state.laneCount];
+    const pressed = event.code === 'Space' ? 'Space' : event.key.toUpperCase();
+    const lane = laneKeys.indexOf(pressed);
+    if (lane >= 0 && state.audioBuffer && !els.audio.paused) {
+      event.preventDefault();
+      setLaneActive(lane);
+      if (state.testMode) judgeLane(lane); else addLaneNote(lane, els.audio.currentTime, 'key');
+      return;
+    }
     if (event.key.toLowerCase() === 't' && state.audioBuffer) { event.preventDefault(); addBeat(els.audio.currentTime, 'tap'); clickSound(900); return; }
     if (event.code === 'Space' && state.audioBuffer) { event.preventDefault(); togglePlay(); return; }
+    if ((event.key === 'Delete' || event.key === 'Backspace') && state.selectedNoteId) { event.preventDefault(); deleteLaneNote(); return; }
     if ((event.key === 'Delete' || event.key === 'Backspace') && state.selectedId) { event.preventDefault(); deleteBeat(); return; }
     if (state.selectedId && ['ArrowLeft','ArrowRight'].includes(event.key)) {
       event.preventDefault();
@@ -775,17 +1231,22 @@
   });
 
   window.addEventListener('resize', () => { cancelAnimationFrame(resizeFrame); resizeFrame = requestAnimationFrame(resizeCanvas); });
-  window.addEventListener('beforeunload', event => { if (state.dirty && state.beats.length) { event.preventDefault(); event.returnValue = ''; } });
+  window.addEventListener('beforeunload', event => { if (state.dirty && (state.beats.length || state.notes.length)) { event.preventDefault(); event.returnValue = ''; } });
 
   try {
     const saved = JSON.parse(localStorage.getItem('rhythm-studio-autosave') || 'null');
-    if (saved?.beats?.length) {
+    if (saved && (saved.beats?.length || saved.notes?.length)) {
       els.projectName.value = saved.name || '未命名谱面';
       state.beats = saved.beats.map(beat => ({ ...beat, id: makeId() }));
       state.bpm = Number(saved.bpm) || 0;
+      state.beatOffset = Number(saved.beatOffset) || 0;
+      state.laneCount = Math.max(2, Math.min(6, Number(saved.laneCount) || 4));
+      state.notes = Array.isArray(saved.notes) ? saved.notes.map(note => ({ ...note, id: makeId() })) : [];
+      els.laneCount.value = String(state.laneCount);
+      if ([0,1,2,4].includes(Number(saved.snapDivision))) els.snapDivision.value = String(saved.snapDivision);
       els.bpmValue.textContent = state.bpm ? state.bpm.toFixed(1) : '—';
       els.analysisResult.classList.remove('hidden');
-      toast(`已恢复上次未导出的 ${state.beats.length} 个节拍，请重新载入音乐`);
+      toast(`已恢复上次未导出的 ${state.beats.length} 个节拍和 ${state.notes.length} 个音符，请重新载入音乐`);
     }
   } catch (_) { /* ignore corrupt autosave */ }
 
