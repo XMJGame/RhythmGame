@@ -64,6 +64,16 @@
               <small>自动结果只是起点，请播放试听并修正。</small>
             </div>
 
+            <section class="timing-calibration hidden" id="timingCalibration" aria-labelledby="timingTitle">
+              <div class="timing-title"><div><strong id="timingTitle">节奏校准</strong><span>系统先计算，你可以修改</span></div><span class="auto-badge">可调整</span></div>
+              <label class="timing-field"><span>BPM <small>每分钟节拍数</small></span><input id="bpmInput" type="number" min="30" max="300" step="0.01" inputmode="decimal" /></label>
+              <div class="timing-quick"><button type="button" id="halfBpmBtn">÷2 减半</button><button type="button" id="doubleBpmBtn">×2 加倍</button></div>
+              <label class="timing-field"><span>第一拍位置 Offset <small>秒</small></span><input id="offsetInput" type="number" min="0" step="0.001" inputmode="decimal" /></label>
+              <div class="timing-quick timing-offset-actions"><button type="button" id="offsetMinusBtn">−10ms</button><button type="button" id="setOffsetBtn">设为当前播放位置</button><button type="button" id="offsetPlusBtn">+10ms</button></div>
+              <p>第一拍之前不生成节拍。修改后需要应用，已有轨道音符不会被偷偷移动。</p>
+              <div class="timing-main-actions"><button class="btn ghost small" type="button" id="previewOffsetBtn">▶ 从第一拍试听</button><button class="btn primary small" type="button" id="applyTimingBtn">应用并重排节拍</button></div>
+            </section>
+
             <div class="tip-card">
               <strong>不会音乐也能用</strong>
               <p>播放音乐，跟着鼓点按 <kbd>T</kbd>，就会在当前位置加入节拍。觉得不准时，拖动时间轴上的黄线即可。</p>
@@ -195,6 +205,7 @@
             <section class="help-section">
               <h3>先分清两个概念</h3>
               <div class="concept-card"><strong><i class="dot beat-dot"></i>节拍</strong><p>音乐里规律出现的时间点，是分析和对齐音符的参考网格。它不是玩家最终要按的全部音符。</p></div>
+              <div class="concept-card"><strong><i class="dot offset-dot"></i>第一拍位置 Offset</strong><p>系统会自动估算正式节奏从哪里开始，你也可以设为当前播放位置。修改后应用，会从新的第一拍重新排列节拍，并影响后续音符吸附和基础谱面生成。</p></div>
               <div class="concept-card"><strong><i class="dot note-dot"></i>轨道谱面</strong><p>玩家实际游玩的音符数据，包含出现时间、所在轨道，以及点击或长按类型。</p></div>
               <div class="help-callout"><strong>“节拍对齐”是什么？</strong><p>在轨道上点击放音符时，把它吸到最近的每拍、半拍或 1/4 拍，减少手抖造成的偏差；选“自由放置”则保留点击的准确时间。</p></div>
             </section>

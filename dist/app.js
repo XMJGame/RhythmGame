@@ -3,11 +3,13 @@
 
   const $ = (id) => document.getElementById(id);
   const els = Object.fromEntries([
-    'audio','audioFile','projectFile','dropZone','fileCard','fileName','fileMeta','replaceAudioBtn','analyzeBtn','analysisDensity','sensitivity','sensitivityValue','analysisResult','bpmValue','beatCount','countPill','playBtn','playIcon','stopBtn','backBtn','forwardBtn','currentTime','durationTime','playbackRate','metronome','waveform','canvasShell','emptyWave','timelineHint','zoom','fitBtn','addBeatBtn','undoBtn','redoBtn','beatTableBody','tableEmpty','selectedLabel','inspectorFields','beatTimeInput','beatType','beatStrength','strengthValue','beatNote','deleteBeatBtn','projectName','saveProjectBtn','openProjectBtn','helpBtn','helpModal','helpCloseBtn','helpDoneBtn','exportGameCsvBtn','exportGameJsonBtn','exportBeatCsvBtn','exportBeatJsonBtn','toastRegion','progressModal','progressBar','progressText','dragHelp','laneCount','snapDivision','noteType','holdLengthWrap','holdLength','laneCanvas','laneEmpty','laneKeys','noteCount','clearNotesBtn','testModeBtn','generateChartBtn','laneModeHelp','judgementPop'
+    'audio','audioFile','projectFile','dropZone','fileCard','fileName','fileMeta','replaceAudioBtn','analyzeBtn','analysisDensity','sensitivity','sensitivityValue','analysisResult','bpmValue','beatCount','countPill','timingCalibration','bpmInput','halfBpmBtn','doubleBpmBtn','offsetInput','offsetMinusBtn','offsetPlusBtn','setOffsetBtn','previewOffsetBtn','applyTimingBtn','playBtn','playIcon','stopBtn','backBtn','forwardBtn','currentTime','durationTime','playbackRate','metronome','waveform','canvasShell','emptyWave','timelineHint','zoom','fitBtn','addBeatBtn','undoBtn','redoBtn','beatTableBody','tableEmpty','selectedLabel','inspectorFields','beatTimeInput','beatType','beatStrength','strengthValue','beatNote','deleteBeatBtn','projectName','saveProjectBtn','openProjectBtn','helpBtn','helpModal','helpCloseBtn','helpDoneBtn','exportGameCsvBtn','exportGameJsonBtn','exportBeatCsvBtn','exportBeatJsonBtn','toastRegion','progressModal','progressBar','progressText','dragHelp','laneCount','snapDivision','noteType','holdLengthWrap','holdLength','laneCanvas','laneEmpty','laneKeys','noteCount','clearNotesBtn','testModeBtn','generateChartBtn','laneModeHelp','judgementPop'
   ].map(id => [id, $(id)]));
 
   const state = {
     audioBuffer: null,
+    onsetEnvelope: null,
+    onsetFrameRate: 0,
     audioFile: null,
     audioUrl: null,
     projectDuration: 0,
@@ -75,6 +77,7 @@
       beats: state.beats.map(beat => ({ ...beat })),
       notes: state.notes.map(note => ({ ...note })),
       laneCount: state.laneCount,
+      bpm: state.bpm,
       beatOffset: state.beatOffset
     };
   }
@@ -91,8 +94,10 @@
     state.beats = (normalized.beats || []).map(beat => ({ ...beat }));
     state.notes = (normalized.notes || []).map(note => ({ ...note }));
     state.laneCount = Math.max(2, Math.min(6, Number(normalized.laneCount) || 4));
+    state.bpm = Number(normalized.bpm) || state.bpm || 0;
     state.beatOffset = Number(normalized.beatOffset) || 0;
     els.laneCount.value = String(state.laneCount);
+    syncTimingControls();
     if (!state.beats.some(beat => beat.id === state.selectedId)) state.selectedId = null;
     if (!state.notes.some(note => note.id === state.selectedNoteId)) state.selectedNoteId = null;
     renderAll();
@@ -196,6 +201,8 @@
     state.audioUrl = null;
     state.audioFile = null;
     state.audioBuffer = null;
+    state.onsetEnvelope = null;
+    state.onsetFrameRate = 0;
     state.waveform = [];
     state.pendingAudioReference = reference || null;
     els.audioFile.value = '';
@@ -219,6 +226,7 @@
 
   function enableAudioControls(enabled) {
     [els.analyzeBtn, els.playBtn, els.stopBtn, els.backBtn, els.forwardBtn, els.zoom, els.fitBtn, els.addBeatBtn].forEach(el => el.disabled = !enabled);
+    [els.setOffsetBtn, els.previewOffsetBtn, els.applyTimingBtn].forEach(el => el.disabled = !enabled || !state.bpm);
     els.generateChartBtn.disabled = !enabled || !state.beats.length;
     els.testModeBtn.disabled = !enabled || !state.notes.length;
   }
@@ -259,6 +267,9 @@
         state.history = [];
         state.future = [];
         state.bpm = 0;
+        state.beatOffset = 0;
+        state.onsetEnvelope = null;
+        state.onsetFrameRate = 0;
         state.zoom = 1;
         state.viewStart = 0;
         els.zoom.value = '1';
@@ -272,6 +283,7 @@
       els.timelineHint.textContent = '上方时间尺拖动播放位置，下方波形编辑节拍';
       els.durationTime.textContent = formatTime(state.audioBuffer.duration);
       els.analysisResult.classList.add('hidden');
+      els.timingCalibration.classList.toggle('hidden', !state.bpm);
       enableAudioControls(true);
       renderAll();
       markDirty();
@@ -328,23 +340,27 @@
       const hop = 512;
       const envelope = buildOnsetEnvelope(state.audioBuffer, hop);
       const frameRate = sampleRate / hop;
+      state.onsetEnvelope = envelope;
+      state.onsetFrameRate = frameRate;
       showProgress('正在寻找稳定的重复间隔…', 38);
       await new Promise(resolve => setTimeout(resolve, 30));
       const tempo = estimateTempo(envelope, frameRate);
       const bpm = tempo.bpm;
       const interval = 60 / bpm;
       const phase = findBeatPhase(envelope, frameRate, interval);
-      state.beatOffset = phase;
+      const offset = findFirstBeatOffset(envelope, frameRate, phase, interval, state.audioBuffer.duration);
       showProgress('正在把候选声音对齐到节拍网格…', 66);
       await new Promise(resolve => setTimeout(resolve, 30));
       const density = els.analysisDensity.value;
-      const detected = buildBeatGrid(envelope, frameRate, bpm, phase, state.audioBuffer.duration, density, Number(els.sensitivity.value));
+      const detected = buildBeatGrid(envelope, frameRate, bpm, offset, state.audioBuffer.duration, density, Number(els.sensitivity.value));
       snapshot();
+      state.beatOffset = offset;
       state.beats = dedupeBeats(detected);
       state.bpm = bpm;
       state.selectedId = null;
       els.bpmValue.textContent = bpm ? bpm.toFixed(1) : '—';
       els.analysisResult.classList.remove('hidden');
+      syncTimingControls();
       showProgress(`整理出 ${state.beats.length} 个规则节拍`, 100);
       renderAll();
       markDirty();
@@ -436,6 +452,25 @@
     return bestPhase / frameRate;
   }
 
+  function findFirstBeatOffset(envelope, frameRate, phase, interval, duration) {
+    const grid = [];
+    for (let time = phase; time < duration; time += interval) {
+      const onset = envelopeAt(envelope, frameRate, time);
+      grid.push({ gridTime: time, refinedTime: onset.frame / frameRate, strength: onset.value });
+    }
+    if (!grid.length) return phase;
+    const positive = grid.map(item => item.strength).filter(value => value > 0).sort((a, b) => a - b);
+    const threshold = Math.max(.08, positive[Math.floor(positive.length * .48)] || 0);
+    for (let i = 0; i < grid.length; i++) {
+      const window = grid.slice(i, i + 8);
+      const reliable = window.filter(item => item.strength >= threshold);
+      if (grid[i].strength >= threshold && reliable.length >= Math.min(3, window.length)) {
+        return Math.abs(grid[i].refinedTime - grid[i].gridTime) <= .07 ? grid[i].refinedTime : grid[i].gridTime;
+      }
+    }
+    return phase;
+  }
+
   function envelopeAt(envelope, frameRate, time, radiusSeconds = .055) {
     const center = Math.round(time * frameRate);
     const radius = Math.max(1, Math.round(radiusSeconds * frameRate));
@@ -494,6 +529,78 @@
     return beats.sort((a, b) => a.time - b.time).filter((beat, i, list) => !i || beat.time - list[i - 1].time > 0.045);
   }
 
+  function syncTimingControls() {
+    const hasTiming = state.bpm > 0;
+    els.timingCalibration.classList.toggle('hidden', !hasTiming);
+    if (!hasTiming) return;
+    els.bpmValue.textContent = state.bpm.toFixed(1);
+    els.bpmInput.value = state.bpm.toFixed(2);
+    els.offsetInput.value = state.beatOffset.toFixed(3);
+    const hasAudio = Boolean(state.audioBuffer);
+    els.setOffsetBtn.disabled = !hasAudio;
+    els.previewOffsetBtn.disabled = !hasAudio || !state.beats.length;
+    els.applyTimingBtn.disabled = !hasAudio;
+  }
+
+  function timingInputValues() {
+    const duration = state.audioBuffer?.duration || state.projectDuration || Infinity;
+    const bpm = Math.max(30, Math.min(300, Number(els.bpmInput.value) || state.bpm || 120));
+    const offset = Math.max(0, Math.min(duration, Number(els.offsetInput.value) || 0));
+    els.bpmInput.value = bpm.toFixed(2);
+    els.offsetInput.value = offset.toFixed(3);
+    return { bpm, offset };
+  }
+
+  function ensureOnsetAnalysis() {
+    if (state.onsetEnvelope && state.onsetFrameRate) return;
+    if (!state.audioBuffer) return;
+    const hop = 512;
+    state.onsetEnvelope = buildOnsetEnvelope(state.audioBuffer, hop);
+    state.onsetFrameRate = state.audioBuffer.sampleRate / hop;
+  }
+
+  function applyTimingCalibration() {
+    if (!state.audioBuffer) return toast('请先关联音乐，再应用节奏校准', 'error');
+    const { bpm, offset } = timingInputValues();
+    if (state.notes.length && !confirm('应用新的 BPM / Offset 会重新排列节拍，但已有轨道音符会保留在原时间。应用后建议试听，必要时清空并重新生成基础谱面。继续吗？')) return;
+    ensureOnsetAnalysis();
+    snapshot();
+    state.bpm = bpm;
+    state.beatOffset = offset;
+    state.beats = dedupeBeats(buildBeatGrid(
+      state.onsetEnvelope,
+      state.onsetFrameRate,
+      bpm,
+      offset,
+      state.audioBuffer.duration,
+      els.analysisDensity.value,
+      Number(els.sensitivity.value)
+    ));
+    state.selectedId = null;
+    els.bpmValue.textContent = bpm.toFixed(1);
+    syncTimingControls();
+    renderAll();
+    markDirty();
+    toast(`已从 ${formatTime(offset)} 重新排列 ${state.beats.length} 个节拍；已有轨道音符未移动`);
+  }
+
+  function adjustTimingInput(input, amount, digits) {
+    input.value = Math.max(0, (Number(input.value) || 0) + amount).toFixed(digits);
+  }
+
+  function previewFromOffset() {
+    if (!state.audioBuffer || !state.beats.length) return;
+    const { bpm, offset } = timingInputValues();
+    if (Math.abs(bpm - state.bpm) > .001 || Math.abs(offset - state.beatOffset) > .001) {
+      toast('数值已经修改，请先点“应用并重排节拍”再试听', 'error');
+      return;
+    }
+    els.audio.currentTime = Math.max(0, offset - .2);
+    els.metronome.checked = true;
+    state.lastMetronomeBeat = null;
+    els.audio.play().catch(() => toast('浏览器阻止了播放，请再点一次试听', 'error'));
+  }
+
   function makeId() {
     return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
   }
@@ -539,6 +646,7 @@
     renderBeatList();
     renderInspector();
     updateCounts();
+    syncTimingControls();
     updateHistoryButtons();
   }
 
@@ -1291,6 +1399,20 @@
   document.addEventListener('drop', event => { if (!event.target.closest('#dropZone')) event.preventDefault(); });
   els.sensitivity.addEventListener('input', () => els.sensitivityValue.textContent = `${els.sensitivity.value}%`);
   els.analyzeBtn.addEventListener('click', analyzeAudio);
+  els.halfBpmBtn.addEventListener('click', () => {
+    els.bpmInput.value = Math.max(30, (Number(els.bpmInput.value) || state.bpm) / 2).toFixed(2);
+  });
+  els.doubleBpmBtn.addEventListener('click', () => {
+    els.bpmInput.value = Math.min(300, (Number(els.bpmInput.value) || state.bpm) * 2).toFixed(2);
+  });
+  els.offsetMinusBtn.addEventListener('click', () => adjustTimingInput(els.offsetInput, -.01, 3));
+  els.offsetPlusBtn.addEventListener('click', () => adjustTimingInput(els.offsetInput, .01, 3));
+  els.setOffsetBtn.addEventListener('click', () => {
+    els.offsetInput.value = Math.max(0, els.audio.currentTime || 0).toFixed(3);
+    toast(`第一拍位置已填入 ${formatTime(els.audio.currentTime)}，点击“应用并重排节拍”后生效`);
+  });
+  els.previewOffsetBtn.addEventListener('click', previewFromOffset);
+  els.applyTimingBtn.addEventListener('click', applyTimingCalibration);
   els.playBtn.addEventListener('click', togglePlay);
   els.stopBtn.addEventListener('click', () => { els.audio.pause(); els.audio.currentTime = 0; state.viewStart = 0; renderTimeline(); });
   els.backBtn.addEventListener('click', () => els.audio.currentTime = Math.max(0, els.audio.currentTime - 5));
