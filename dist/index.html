@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0b0f13" />
+    <meta name="description" content="在浏览器中分析音乐、编辑节拍并导出游戏谱面。" />
+    <title>节拍工坊 · Rhythm Chart Studio</title>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230b0f13'/%3E%3Cpath d='M12 38h8l5-18 8 31 7-25 5 12h7' fill='none' stroke='%23ffcc33' stroke-width='6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div class="brand" aria-label="节拍工坊">
+          <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+          <span><strong>节拍工坊</strong><small>RHYTHM CHART STUDIO</small></span>
+        </div>
+        <div class="project-name-wrap">
+          <label for="projectName">谱面名称</label>
+          <input id="projectName" value="未命名谱面" maxlength="60" />
+        </div>
+        <div class="header-actions">
+          <button class="btn ghost" id="openProjectBtn" title="打开之前保存的工程">打开工程</button>
+          <input id="projectFile" type="file" accept="application/json,.json" hidden />
+          <button class="btn primary" id="saveProjectBtn">保存工程</button>
+        </div>
+      </header>
+
+      <main>
+        <section class="workspace" id="workspace">
+          <aside class="left-panel panel">
+            <div class="panel-heading"><span>01</span><div><h2>音乐</h2><p>先放入一首本地音乐</p></div></div>
+            <label class="drop-zone" id="dropZone" for="audioFile">
+              <input id="audioFile" type="file" accept="audio/*,.mp3,.wav,.ogg,.m4a,.aac,.flac" hidden />
+              <span class="upload-icon" aria-hidden="true">＋</span>
+              <strong>选择音乐文件</strong>
+              <small>或拖到这里 · MP3 / WAV / OGG / M4A</small>
+            </label>
+            <div class="file-card hidden" id="fileCard">
+              <div class="file-badge">♪</div>
+              <div class="file-info"><strong id="fileName">—</strong><span id="fileMeta">—</span></div>
+              <button class="icon-btn" id="replaceAudioBtn" title="更换音乐" aria-label="更换音乐">↻</button>
+            </div>
+
+            <div class="divider"></div>
+            <div class="panel-heading compact"><span>02</span><div><h2>自动找节拍</h2><p>先自动生成，再按听感微调</p></div></div>
+            <label class="range-field">
+              <span>识别灵敏度 <output id="sensitivityValue">65%</output></span>
+              <input id="sensitivity" type="range" min="20" max="95" value="65" />
+            </label>
+            <button class="btn analyze" id="analyzeBtn" disabled><span>✦</span> 分析音乐并生成节拍</button>
+            <div class="analysis-result hidden" id="analysisResult">
+              <div><span>估算速度</span><strong><b id="bpmValue">—</b> BPM</strong></div>
+              <div><span>节拍数量</span><strong><b id="beatCount">0</b> 个</strong></div>
+              <small>自动结果只是起点，请播放试听并修正。</small>
+            </div>
+
+            <div class="tip-card">
+              <strong>不会音乐也能用</strong>
+              <p>播放音乐，跟着鼓点按 <kbd>T</kbd>，就会在当前位置加入节拍。觉得不准时，拖动时间轴上的黄线即可。</p>
+            </div>
+          </aside>
+
+          <section class="editor-panel">
+            <div class="transport panel">
+              <div class="transport-main">
+                <button class="round-btn" id="stopBtn" disabled title="停止并回到开头" aria-label="停止">■</button>
+                <button class="play-btn" id="playBtn" disabled aria-label="播放或暂停"><span id="playIcon">▶</span></button>
+                <button class="round-btn" id="backBtn" disabled title="后退 5 秒" aria-label="后退 5 秒">−5</button>
+                <button class="round-btn" id="forwardBtn" disabled title="前进 5 秒" aria-label="前进 5 秒">+5</button>
+              </div>
+              <div class="time-readout"><strong id="currentTime">00:00.000</strong><span>/</span><span id="durationTime">00:00.000</span></div>
+              <div class="transport-options">
+                <label><span>速度</span><select id="playbackRate"><option value="0.5">0.5×</option><option value="0.75">0.75×</option><option value="1" selected>1.0×</option><option value="1.25">1.25×</option></select></label>
+                <label class="switch"><input type="checkbox" id="metronome" /><span></span><b>节拍提示音</b></label>
+              </div>
+            </div>
+
+            <div class="timeline-card panel">
+              <div class="timeline-toolbar">
+                <div><h2>波形时间轴</h2><p id="timelineHint">导入音乐后会在这里显示声音波形</p></div>
+                <div class="tool-actions">
+                  <button class="btn ghost small" id="undoBtn" disabled title="撤销 Ctrl+Z">↶ 撤销</button>
+                  <button class="btn ghost small" id="redoBtn" disabled title="重做 Ctrl+Shift+Z">↷ 重做</button>
+                  <button class="btn ghost small" id="addBeatBtn" disabled>＋ 添加节拍</button>
+                </div>
+              </div>
+              <div class="canvas-shell" id="canvasShell">
+                <canvas id="waveform" aria-label="音乐波形与节拍时间轴"></canvas>
+                <div class="empty-wave" id="emptyWave"><span>♪</span><strong>还没有音乐</strong><small>从左侧选择文件，马上开始</small></div>
+                <div class="drag-help hidden" id="dragHelp">拖动以调整时间</div>
+              </div>
+              <div class="zoom-row">
+                <span>全曲</span><input id="zoom" type="range" min="1" max="12" step="0.25" value="1" disabled /><span>放大</span>
+                <button class="text-btn" id="fitBtn" disabled>显示全曲</button>
+              </div>
+              <div class="legend"><span><i class="legend-beat"></i>普通节拍</span><span><i class="legend-accent"></i>重拍</span><span><i class="legend-selected"></i>已选中</span><span class="hint">单击定位 · 双击添加 · 拖动节拍线调整</span></div>
+            </div>
+
+            <div class="lower-grid">
+              <section class="beat-list panel">
+                <div class="section-head"><div><h2>节拍列表</h2><p>精确查看和修改每一个节拍</p></div><span class="count-pill" id="countPill">0 个</span></div>
+                <div class="table-wrap">
+                  <table>
+                    <thead><tr><th>#</th><th>时间</th><th>类型</th><th>强度</th><th></th></tr></thead>
+                    <tbody id="beatTableBody"></tbody>
+                  </table>
+                  <div class="table-empty" id="tableEmpty"><strong>暂无节拍</strong><span>自动分析，或播放时按 T 添加</span></div>
+                </div>
+              </section>
+
+              <aside class="inspector panel">
+                <div class="section-head"><div><h2>节拍属性</h2><p id="selectedLabel">请选择一个节拍</p></div></div>
+                <fieldset id="inspectorFields" disabled>
+                  <label>精确时间（秒）<div class="stepper"><button type="button" data-step="-0.01">−</button><input id="beatTimeInput" type="number" min="0" step="0.001" /><button type="button" data-step="0.01">＋</button></div></label>
+                  <label>节拍类型<select id="beatType"><option value="beat">普通节拍</option><option value="accent">重拍</option><option value="note">备注点</option></select></label>
+                  <label class="range-field">强度 <output id="strengthValue">80%</output><input id="beatStrength" type="range" min="10" max="100" value="80" /></label>
+                  <label>备注<input id="beatNote" type="text" maxlength="80" placeholder="例如：进入副歌" /></label>
+                  <button class="btn danger" id="deleteBeatBtn" type="button">删除这个节拍</button>
+                </fieldset>
+              </aside>
+            </div>
+          </section>
+        </section>
+
+        <section class="export-bar panel">
+          <div><span class="export-icon">⇩</span><div><strong>完成后导出谱面</strong><small>JSON 适合游戏读取，CSV 适合在表格里检查</small></div></div>
+          <div class="export-actions"><button class="btn ghost" id="exportCsvBtn" disabled>导出 CSV</button><button class="btn primary" id="exportJsonBtn" disabled>导出游戏 JSON</button></div>
+        </section>
+      </main>
+    </div>
+
+    <div class="toast-region" id="toastRegion" aria-live="polite"></div>
+    <div class="modal hidden" id="progressModal" role="dialog" aria-modal="true" aria-labelledby="progressTitle">
+      <div class="modal-card"><div class="spinner"></div><h2 id="progressTitle">正在听音乐…</h2><p id="progressText">正在寻找明显的鼓点和节奏规律</p><div class="progress-track"><i id="progressBar"></i></div></div>
+    </div>
+    <audio id="audio" preload="metadata"></audio>
+    <script src="./app.js"></script>
+  </body>
+</html>
