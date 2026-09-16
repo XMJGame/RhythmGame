@@ -1138,7 +1138,7 @@
     return '\ufeff' + rows.map(row => row.map(value => `"${String(value ?? '').replace(/"/g, '""')}"`).join(',')).join('\r\n');
   }
 
-  const GAME_COLUMNS = ['index','time_ms','time_display','lane','lane_display','type','end_time_ms','duration_ms'];
+  const GAME_COLUMNS = ['index','time_ms','time_display','lane','type','end_time_ms','duration_ms'];
   const BEAT_COLUMNS = ['index','time_ms','time_seconds','time_display','type','strength','note'];
 
   function gameExportRows() {
@@ -1146,8 +1146,7 @@
       index: index + 1,
       time_ms: Math.round(note.time * 1000),
       time_display: formatTime(note.time),
-      lane: note.lane,
-      lane_display: note.lane + 1,
+      lane: note.lane + 1,
       type: note.type,
       end_time_ms: note.type === 'hold' ? Math.round(note.endTime * 1000) : null,
       duration_ms: note.type === 'hold' ? Math.round((note.endTime - note.time) * 1000) : null
@@ -1178,13 +1177,13 @@
   function exportGameJson() {
     const project = projectData();
     const data = {
-      format: 'rhythm-game-chart', version: 2, name: project.name,
+      format: 'rhythm-game-chart', version: 3, name: project.name,
       audio: project.audio ? { file: project.audio.reference || project.audio.name, duration_ms: Math.round(project.duration * 1000) } : null,
       lane_count: project.laneCount, bpm: project.bpm, beat_offset_ms: Math.round(project.beatOffset * 1000),
       time_unit: 'milliseconds', columns: GAME_COLUMNS, notes: gameExportRows()
     };
     downloadFile(`${els.projectName.value || '谱面'}.game.json`, JSON.stringify(data, null, 2), 'application/json');
-    toast('游戏 JSON 已导出，时间单位是毫秒');
+    toast('游戏 JSON 已导出：时间为毫秒，轨道从 1 开始');
   }
 
   function exportBeatCsv() {
