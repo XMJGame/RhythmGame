@@ -31,6 +31,11 @@
     scrubbingTimeline: false,
     draggingId: null,
     dragMoved: false,
+    draggingNoteId: null,
+    noteDragStartX: 0,
+    noteDragStartY: 0,
+    noteDragSnapshotTaken: false,
+    scrubbingLaneTimeline: false,
     history: [],
     future: [],
     lastMetronomeBeat: null,
@@ -44,6 +49,8 @@
   const canvasCtx = els.waveform.getContext('2d');
   const laneCtx = els.laneCanvas.getContext('2d');
   const RULER_HEIGHT = 30;
+  const LANE_RULER_HEIGHT = 30;
+  const LANE_LABEL_WIDTH = 62;
   const KEY_LAYOUTS = {
     2: ['D', 'K'],
     3: ['F', 'J', 'K'],
@@ -811,6 +818,16 @@
     return view.now + (view.judgementY - y) / view.pixelsPerSecond;
   }
 
+  function laneTimelineX(time, width) {
+    const contentWidth = Math.max(1, width - LANE_LABEL_WIDTH);
+    return LANE_LABEL_WIDTH + ((time - state.viewStart) / viewDuration()) * contentWidth;
+  }
+
+  function laneTimelineTime(x, width) {
+    const contentWidth = Math.max(1, width - LANE_LABEL_WIDTH);
+    return state.viewStart + ((x - LANE_LABEL_WIDTH) / contentWidth) * viewDuration();
+  }
+
   function renderLaneKeys() {
     const keys = KEY_LAYOUTS[state.laneCount];
     els.laneKeys.style.setProperty('--lanes', state.laneCount);
@@ -836,6 +853,16 @@
     const height = rect.height;
     if (!width || !height) return;
     laneCtx.clearRect(0, 0, width, height);
+    if (!state.testMode) {
+      renderLaneTimeline(width, height);
+      renderLaneKeys();
+      return;
+    }
+    renderLanePlayfield(width, height);
+    renderLaneKeys();
+  }
+
+  function renderLanePlayfield(width, height) {
     laneCtx.fillStyle = '#090e13';
     laneCtx.fillRect(0, 0, width, height);
     const laneWidth = width / state.laneCount;
@@ -894,7 +921,106 @@
       laneCtx.fillRect(x, y - 6, w, 12);
       laneCtx.shadowBlur = 0;
     });
-    renderLaneKeys();
+  }
+
+  function renderLaneTimeline(width, height) {
+    const contentWidth = Math.max(1, width - LANE_LABEL_WIDTH);
+    const laneHeight = Math.max(24, (height - LANE_RULER_HEIGHT) / state.laneCount);
+    const duration = viewDuration();
+
+    laneCtx.fillStyle = '#090e13';
+    laneCtx.fillRect(0, 0, width, height);
+    laneCtx.fillStyle = 'rgba(19,26,33,.98)';
+    laneCtx.fillRect(0, 0, width, LANE_RULER_HEIGHT);
+    laneCtx.fillStyle = '#0d1319';
+    laneCtx.fillRect(0, LANE_RULER_HEIGHT, LANE_LABEL_WIDTH, height - LANE_RULER_HEIGHT);
+
+    const targetSteps = contentWidth < 600 ? 5 : 10;
+    const rawStep = duration / targetSteps;
+    const options = [.1,.25,.5,1,2,5,10,15,30,60,120,300];
+    const step = options.find(value => value >= rawStep) || 600;
+    const firstTick = Math.ceil(state.viewStart / step) * step;
+    laneCtx.font = '11px ui-monospace, monospace';
+    laneCtx.fillStyle = '#7e8a96';
+    laneCtx.strokeStyle = 'rgba(137,149,162,.18)';
+    laneCtx.lineWidth = 1;
+    for (let time = firstTick; time <= state.viewStart + duration + .0001; time += step) {
+      const x = laneTimelineX(time, width);
+      laneCtx.beginPath(); laneCtx.moveTo(x, 0); laneCtx.lineTo(x, height); laneCtx.stroke();
+      laneCtx.fillText(formatTime(time).slice(0, 5), x + 4, 19);
+    }
+
+    if (state.bpm) {
+      const division = Math.max(1, Number(els.snapDivision.value) || 1);
+      const unit = beatDuration() / division;
+      let time = state.beatOffset + Math.ceil((state.viewStart - state.beatOffset) / unit) * unit;
+      for (; time <= state.viewStart + duration + .0001; time += unit) {
+        const x = laneTimelineX(time, width);
+        const beatNumber = (time - state.beatOffset) / beatDuration();
+        const wholeBeat = Math.abs(beatNumber - Math.round(beatNumber)) < .03;
+        const barStart = wholeBeat && Math.round(beatNumber) % 4 === 0;
+        laneCtx.strokeStyle = barStart ? 'rgba(255,212,59,.28)' : wholeBeat ? 'rgba(255,212,59,.16)' : 'rgba(137,149,162,.08)';
+        laneCtx.lineWidth = barStart ? 1.5 : 1;
+        laneCtx.beginPath(); laneCtx.moveTo(x, LANE_RULER_HEIGHT); laneCtx.lineTo(x, height); laneCtx.stroke();
+      }
+    }
+
+    const keys = KEY_LAYOUTS[state.laneCount];
+    for (let lane = 0; lane < state.laneCount; lane++) {
+      const y = LANE_RULER_HEIGHT + lane * laneHeight;
+      laneCtx.fillStyle = state.activeLanes.has(lane)
+        ? 'rgba(255,212,59,.09)'
+        : lane % 2 ? 'rgba(255,255,255,.018)' : 'rgba(103,232,249,.018)';
+      laneCtx.fillRect(LANE_LABEL_WIDTH, y, contentWidth, laneHeight);
+      laneCtx.strokeStyle = 'rgba(137,149,162,.24)';
+      laneCtx.lineWidth = 1;
+      laneCtx.beginPath(); laneCtx.moveTo(0, y + .5); laneCtx.lineTo(width, y + .5); laneCtx.stroke();
+      laneCtx.fillStyle = '#aeb8c2';
+      laneCtx.font = '700 11px ui-monospace, monospace';
+      laneCtx.textAlign = 'center';
+      laneCtx.textBaseline = 'middle';
+      laneCtx.fillText(`${lane + 1}  ${keys[lane]}`, LANE_LABEL_WIDTH / 2, y + laneHeight / 2);
+    }
+    laneCtx.textAlign = 'start';
+    laneCtx.textBaseline = 'alphabetic';
+    laneCtx.strokeStyle = 'rgba(137,149,162,.35)';
+    laneCtx.beginPath(); laneCtx.moveTo(LANE_LABEL_WIDTH + .5, 0); laneCtx.lineTo(LANE_LABEL_WIDTH + .5, height); laneCtx.stroke();
+    laneCtx.beginPath(); laneCtx.moveTo(0, height - .5); laneCtx.lineTo(width, height - .5); laneCtx.stroke();
+
+    state.notes.forEach(note => {
+      const x = laneTimelineX(note.time, width);
+      const endX = note.type === 'hold' ? laneTimelineX(note.endTime, width) : x;
+      if (Math.max(x, endX) < LANE_LABEL_WIDTH - 20 || Math.min(x, endX) > width + 20) return;
+      const centerY = LANE_RULER_HEIGHT + note.lane * laneHeight + laneHeight / 2;
+      const selected = note.id === state.selectedNoteId;
+      if (note.type === 'hold') {
+        laneCtx.fillStyle = selected ? 'rgba(255,100,116,.45)' : 'rgba(103,232,249,.3)';
+        laneCtx.fillRect(x, centerY - 5, Math.max(5, endX - x), 10);
+      }
+      laneCtx.fillStyle = selected ? '#ff6474' : note.type === 'hold' ? '#67e8f9' : '#ffd43b';
+      laneCtx.shadowColor = laneCtx.fillStyle;
+      laneCtx.shadowBlur = selected ? 14 : 6;
+      laneCtx.beginPath();
+      laneCtx.roundRect(x - 7, centerY - Math.min(12, laneHeight * .28), 14, Math.min(24, laneHeight * .56), 4);
+      laneCtx.fill();
+      laneCtx.shadowBlur = 0;
+      if (selected) {
+        laneCtx.strokeStyle = '#fff';
+        laneCtx.lineWidth = 1;
+        laneCtx.stroke();
+      }
+    });
+
+    if (state.audioBuffer) {
+      const playX = laneTimelineX(els.audio.currentTime, width);
+      if (playX >= LANE_LABEL_WIDTH && playX <= width) {
+        laneCtx.strokeStyle = '#fff';
+        laneCtx.lineWidth = 1;
+        laneCtx.beginPath(); laneCtx.moveTo(playX, 0); laneCtx.lineTo(playX, height); laneCtx.stroke();
+        laneCtx.fillStyle = '#fff';
+        laneCtx.beginPath(); laneCtx.arc(playX, 9, 3, 0, Math.PI * 2); laneCtx.fill();
+      }
+    }
   }
 
   function addLaneNote(lane, time, source = 'pointer') {
@@ -926,7 +1052,12 @@
     const rect = els.laneCanvas.getBoundingClientRect();
     const x = Math.max(0, Math.min(rect.width - .01, event.clientX - rect.left));
     const y = Math.max(0, Math.min(rect.height, event.clientY - rect.top));
-    return { x, y, width: rect.width, height: rect.height, lane: Math.floor(x / (rect.width / state.laneCount)), time: laneYToTime(y, rect.height) };
+    if (!state.testMode) {
+      const laneHeight = (rect.height - LANE_RULER_HEIGHT) / state.laneCount;
+      const lane = Math.floor((y - LANE_RULER_HEIGHT) / laneHeight);
+      return { x, y, width: rect.width, height: rect.height, lane, time: laneTimelineTime(x, rect.width), onRuler: y <= LANE_RULER_HEIGHT };
+    }
+    return { x, y, width: rect.width, height: rect.height, lane: Math.floor(x / (rect.width / state.laneCount)), time: laneYToTime(y, rect.height), onRuler: false };
   }
 
   function nearestLaneNote(lane, time) {
@@ -936,17 +1067,107 @@
       .sort((a, b) => Math.abs(a.time - time) - Math.abs(b.time - time))[0] || null;
   }
 
+  function laneNoteAtPoint(point) {
+    if (state.testMode) return nearestLaneNote(point.lane, point.time);
+    if (point.lane < 0 || point.lane >= state.laneCount || point.x < LANE_LABEL_WIDTH) return null;
+    return state.notes
+      .filter(note => {
+        if (note.lane !== point.lane) return false;
+        const startX = laneTimelineX(note.time, point.width);
+        const endX = note.type === 'hold' ? laneTimelineX(note.endTime, point.width) : startX;
+        return point.x >= Math.min(startX, endX) - 12 && point.x <= Math.max(startX, endX) + 12;
+      })
+      .sort((a, b) => Math.abs(laneTimelineX(a.time, point.width) - point.x) - Math.abs(laneTimelineX(b.time, point.width) - point.x))[0] || null;
+  }
+
   function handleLanePointer(event) {
     if (!state.audioBuffer || state.testMode) return;
     const point = lanePointerInfo(event);
-    const existing = nearestLaneNote(point.lane, point.time);
+    if (point.onRuler && event.button !== 2) {
+      state.scrubbingLaneTimeline = true;
+      els.laneCanvas.setPointerCapture(event.pointerId);
+      seekFromLaneTimeline(point);
+      return;
+    }
+    const existing = laneNoteAtPoint(point);
     if (existing) {
       state.selectedNoteId = existing.id;
       if (event.button === 2) deleteLaneNote(existing.id);
-      else { els.audio.currentTime = existing.time; renderAll(); }
+      else {
+        state.draggingNoteId = existing.id;
+        state.noteDragStartX = point.x;
+        state.noteDragStartY = point.y;
+        state.noteDragSnapshotTaken = false;
+        els.laneCanvas.setPointerCapture(event.pointerId);
+        renderLaneEditor();
+      }
       return;
     }
-    if (event.button !== 2 && point.time >= 0 && point.time <= els.audio.duration) addLaneNote(point.lane, point.time);
+    if (event.button !== 2 && point.lane >= 0 && point.lane < state.laneCount && point.time >= 0 && point.time <= els.audio.duration) addLaneNote(point.lane, point.time);
+  }
+
+  function seekFromLaneTimeline(point) {
+    els.audio.currentTime = Math.max(0, Math.min(point.time, els.audio.duration));
+    els.currentTime.textContent = formatTime(els.audio.currentTime);
+    renderTimeline();
+    renderLaneEditor();
+  }
+
+  function moveLanePointer(event) {
+    if (!state.audioBuffer || state.testMode) return;
+    const point = lanePointerInfo(event);
+    if (state.scrubbingLaneTimeline) {
+      seekFromLaneTimeline(point);
+      return;
+    }
+    if (!state.draggingNoteId) {
+      els.laneCanvas.style.cursor = point.onRuler ? 'ew-resize' : laneNoteAtPoint(point) ? 'grab' : 'crosshair';
+      return;
+    }
+    const note = state.notes.find(item => item.id === state.draggingNoteId);
+    if (!note) return;
+    if (!state.noteDragSnapshotTaken) {
+      const distance = Math.hypot(point.x - state.noteDragStartX, point.y - state.noteDragStartY);
+      if (distance < 3) return;
+      snapshot();
+      state.noteDragSnapshotTaken = true;
+    }
+    const oldTime = note.time;
+    const oldLane = note.lane;
+    const holdDuration = note.type === 'hold' ? note.endTime - note.time : 0;
+    const targetLane = Math.max(0, Math.min(state.laneCount - 1, point.lane));
+    const targetTime = Number(Math.max(0, Math.min(snapTime(point.time), els.audio.duration)).toFixed(3));
+    const occupied = state.notes.some(item => item.id !== note.id && item.lane === targetLane && Math.abs(item.time - targetTime) < .035);
+    if (!occupied) {
+      note.lane = targetLane;
+      note.time = targetTime;
+    } else {
+      note.lane = oldLane;
+      note.time = oldTime;
+    }
+    if (note.type === 'hold') note.endTime = Number(Math.min(els.audio.duration, note.time + holdDuration).toFixed(3));
+    if (oldTime !== note.time) els.audio.currentTime = note.time;
+    els.laneCanvas.style.cursor = 'grabbing';
+    renderTimeline();
+    renderLaneEditor();
+  }
+
+  function endLanePointer() {
+    if (state.scrubbingLaneTimeline) {
+      state.scrubbingLaneTimeline = false;
+      return;
+    }
+    if (!state.draggingNoteId) return;
+    const note = state.notes.find(item => item.id === state.draggingNoteId);
+    if (!state.noteDragSnapshotTaken && note) {
+      els.audio.currentTime = note.time;
+      els.currentTime.textContent = formatTime(note.time);
+    }
+    state.notes.sort((a, b) => a.time - b.time || a.lane - b.lane);
+    state.draggingNoteId = null;
+    els.laneCanvas.style.cursor = 'crosshair';
+    renderAll();
+    if (state.noteDragSnapshotTaken) markDirty();
   }
 
   function generateBaseChart() {
@@ -1032,8 +1253,9 @@
     state.hitNotes.clear();
     els.testModeBtn.textContent = state.testMode ? '■ 退出试玩' : '▷ 试玩模式';
     els.laneCanvas.style.cursor = state.testMode ? 'default' : 'crosshair';
+    els.laneCanvas.parentElement.classList.toggle('test-mode', state.testMode);
     toast(state.testMode ? `试玩已开启，请使用 ${KEY_LAYOUTS[state.laneCount].join(' ')} 击打音符，空格键暂停/继续` : '已退出试玩模式');
-    renderLaneEditor();
+    resizeCanvas();
   }
 
   function renderBeatList() {
@@ -1463,8 +1685,8 @@
     renderLaneEditor();
   });
   els.audio.addEventListener('seeked', () => { state.lastMetronomeBeat = null; els.currentTime.textContent = formatTime(els.audio.currentTime); renderTimeline(); });
-  els.zoom.addEventListener('input', () => { state.zoom = Number(els.zoom.value); state.viewStart = Math.max(0, Math.min(els.audio.currentTime - viewDuration() / 2, els.audio.duration - viewDuration())); renderTimeline(); });
-  els.fitBtn.addEventListener('click', () => { state.zoom = 1; state.viewStart = 0; els.zoom.value = '1'; renderTimeline(); });
+  els.zoom.addEventListener('input', () => { state.zoom = Number(els.zoom.value); state.viewStart = Math.max(0, Math.min(els.audio.currentTime - viewDuration() / 2, els.audio.duration - viewDuration())); renderTimeline(); renderLaneEditor(); });
+  els.fitBtn.addEventListener('click', () => { state.zoom = 1; state.viewStart = 0; els.zoom.value = '1'; renderTimeline(); renderLaneEditor(); });
   els.addBeatBtn.addEventListener('click', () => addBeat());
   els.undoBtn.addEventListener('click', undo);
   els.redoBtn.addEventListener('click', redo);
@@ -1486,6 +1708,7 @@
       state.viewStart = Math.max(0, Math.min(state.viewStart + event.deltaY * viewDuration() / 1400, els.audio.duration - viewDuration()));
     }
     renderTimeline();
+    renderLaneEditor();
   }, { passive: false });
   els.beatTimeInput.addEventListener('change', () => updateSelected({ time: Number(els.beatTimeInput.value) }));
   els.beatType.addEventListener('change', () => updateSelected({ type: els.beatType.value }));
@@ -1556,6 +1779,9 @@
   });
   els.testModeBtn.addEventListener('click', toggleTestMode);
   els.laneCanvas.addEventListener('pointerdown', handleLanePointer);
+  els.laneCanvas.addEventListener('pointermove', moveLanePointer);
+  els.laneCanvas.addEventListener('pointerup', endLanePointer);
+  els.laneCanvas.addEventListener('pointercancel', endLanePointer);
   els.laneCanvas.addEventListener('contextmenu', event => { event.preventDefault(); handleLanePointer(event); });
 
   document.addEventListener('keydown', event => {
