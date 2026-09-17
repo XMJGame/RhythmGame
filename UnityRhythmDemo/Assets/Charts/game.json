@@ -1,6 +1,6 @@
 {
   "format": "rhythm-game-chart",
-  "version": 3,
+  "version": 4,
   "name": "未命名谱面",
   "audio": {
     "file": "节拍测试曲-120BPM-第一拍2秒.wav",
@@ -11,6 +11,7 @@
   "beat_offset_ms": 1984,
   "time_unit": "milliseconds",
   "columns": [
+    "difficulty",
     "index",
     "time_ms",
     "time_display",
@@ -19,330 +20,1274 @@
     "end_time_ms",
     "duration_ms"
   ],
-  "notes": [
-    {
-      "index": 1,
-      "time_ms": 1984,
-      "time_display": "00:01.984",
-      "lane": 1,
-      "type": "tap",
-      "end_time_ms": null,
-      "duration_ms": null
+  "charts": {
+    "standard": {
+      "difficulty": "standard",
+      "note_count": 18,
+      "notes": [
+        {
+          "difficulty": "standard",
+          "index": 1,
+          "time_ms": 1984,
+          "time_display": "00:01.984",
+          "lane": 1,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "standard",
+          "index": 2,
+          "time_ms": 2987,
+          "time_display": "00:02.987",
+          "lane": 2,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "standard",
+          "index": 3,
+          "time_ms": 3989,
+          "time_display": "00:03.988",
+          "lane": 1,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "standard",
+          "index": 4,
+          "time_ms": 4981,
+          "time_display": "00:04.980",
+          "lane": 2,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "standard",
+          "index": 5,
+          "time_ms": 5984,
+          "time_display": "00:05.984",
+          "lane": 1,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "standard",
+          "index": 6,
+          "time_ms": 6987,
+          "time_display": "00:06.987",
+          "lane": 2,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "standard",
+          "index": 7,
+          "time_ms": 7989,
+          "time_display": "00:07.988",
+          "lane": 1,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "standard",
+          "index": 8,
+          "time_ms": 8981,
+          "time_display": "00:08.980",
+          "lane": 2,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "standard",
+          "index": 9,
+          "time_ms": 9984,
+          "time_display": "00:09.984",
+          "lane": 1,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "standard",
+          "index": 10,
+          "time_ms": 10987,
+          "time_display": "00:10.987",
+          "lane": 2,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "standard",
+          "index": 11,
+          "time_ms": 11989,
+          "time_display": "00:11.989",
+          "lane": 1,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "standard",
+          "index": 12,
+          "time_ms": 12981,
+          "time_display": "00:12.980",
+          "lane": 2,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "standard",
+          "index": 13,
+          "time_ms": 13984,
+          "time_display": "00:13.984",
+          "lane": 1,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "standard",
+          "index": 14,
+          "time_ms": 14987,
+          "time_display": "00:14.987",
+          "lane": 2,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "standard",
+          "index": 15,
+          "time_ms": 15989,
+          "time_display": "00:15.989",
+          "lane": 1,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "standard",
+          "index": 16,
+          "time_ms": 16981,
+          "time_display": "00:16.981",
+          "lane": 2,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "standard",
+          "index": 17,
+          "time_ms": 17984,
+          "time_display": "00:17.984",
+          "lane": 1,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "standard",
+          "index": 18,
+          "time_ms": 18987,
+          "time_display": "00:18.986",
+          "lane": 2,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        }
+      ]
     },
-    {
-      "index": 2,
-      "time_ms": 2485,
-      "time_display": "00:02.484",
-      "lane": 2,
-      "type": "tap",
-      "end_time_ms": null,
-      "duration_ms": null
+    "hard": {
+      "difficulty": "hard",
+      "note_count": 36,
+      "notes": [
+        {
+          "difficulty": "hard",
+          "index": 1,
+          "time_ms": 1984,
+          "time_display": "00:01.984",
+          "lane": 1,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "hard",
+          "index": 2,
+          "time_ms": 2484,
+          "time_display": "00:02.484",
+          "lane": 2,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "hard",
+          "index": 3,
+          "time_ms": 2984,
+          "time_display": "00:02.984",
+          "lane": 1,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "hard",
+          "index": 4,
+          "time_ms": 3484,
+          "time_display": "00:03.484",
+          "lane": 2,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "hard",
+          "index": 5,
+          "time_ms": 3984,
+          "time_display": "00:03.984",
+          "lane": 1,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "hard",
+          "index": 6,
+          "time_ms": 4484,
+          "time_display": "00:04.484",
+          "lane": 2,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "hard",
+          "index": 7,
+          "time_ms": 4984,
+          "time_display": "00:04.984",
+          "lane": 1,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "hard",
+          "index": 8,
+          "time_ms": 5484,
+          "time_display": "00:05.484",
+          "lane": 2,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "hard",
+          "index": 9,
+          "time_ms": 5984,
+          "time_display": "00:05.984",
+          "lane": 1,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "hard",
+          "index": 10,
+          "time_ms": 6484,
+          "time_display": "00:06.484",
+          "lane": 2,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "hard",
+          "index": 11,
+          "time_ms": 6984,
+          "time_display": "00:06.984",
+          "lane": 1,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "hard",
+          "index": 12,
+          "time_ms": 7484,
+          "time_display": "00:07.484",
+          "lane": 2,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "hard",
+          "index": 13,
+          "time_ms": 7984,
+          "time_display": "00:07.984",
+          "lane": 1,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "hard",
+          "index": 14,
+          "time_ms": 8484,
+          "time_display": "00:08.484",
+          "lane": 2,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "hard",
+          "index": 15,
+          "time_ms": 8984,
+          "time_display": "00:08.984",
+          "lane": 1,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "hard",
+          "index": 16,
+          "time_ms": 9484,
+          "time_display": "00:09.484",
+          "lane": 2,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "hard",
+          "index": 17,
+          "time_ms": 9984,
+          "time_display": "00:09.984",
+          "lane": 1,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "hard",
+          "index": 18,
+          "time_ms": 10484,
+          "time_display": "00:10.484",
+          "lane": 2,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "hard",
+          "index": 19,
+          "time_ms": 10984,
+          "time_display": "00:10.984",
+          "lane": 1,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "hard",
+          "index": 20,
+          "time_ms": 11484,
+          "time_display": "00:11.484",
+          "lane": 2,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "hard",
+          "index": 21,
+          "time_ms": 11984,
+          "time_display": "00:11.984",
+          "lane": 1,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "hard",
+          "index": 22,
+          "time_ms": 12484,
+          "time_display": "00:12.484",
+          "lane": 2,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "hard",
+          "index": 23,
+          "time_ms": 12984,
+          "time_display": "00:12.984",
+          "lane": 1,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "hard",
+          "index": 24,
+          "time_ms": 13484,
+          "time_display": "00:13.484",
+          "lane": 2,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "hard",
+          "index": 25,
+          "time_ms": 13984,
+          "time_display": "00:13.984",
+          "lane": 1,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "hard",
+          "index": 26,
+          "time_ms": 14484,
+          "time_display": "00:14.484",
+          "lane": 2,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "hard",
+          "index": 27,
+          "time_ms": 14984,
+          "time_display": "00:14.984",
+          "lane": 1,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "hard",
+          "index": 28,
+          "time_ms": 15484,
+          "time_display": "00:15.484",
+          "lane": 2,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "hard",
+          "index": 29,
+          "time_ms": 15984,
+          "time_display": "00:15.984",
+          "lane": 1,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "hard",
+          "index": 30,
+          "time_ms": 16484,
+          "time_display": "00:16.484",
+          "lane": 2,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "hard",
+          "index": 31,
+          "time_ms": 16984,
+          "time_display": "00:16.984",
+          "lane": 1,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "hard",
+          "index": 32,
+          "time_ms": 17484,
+          "time_display": "00:17.484",
+          "lane": 2,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "hard",
+          "index": 33,
+          "time_ms": 17984,
+          "time_display": "00:17.984",
+          "lane": 1,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "hard",
+          "index": 34,
+          "time_ms": 18484,
+          "time_display": "00:18.484",
+          "lane": 2,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "hard",
+          "index": 35,
+          "time_ms": 18984,
+          "time_display": "00:18.984",
+          "lane": 1,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "hard",
+          "index": 36,
+          "time_ms": 19484,
+          "time_display": "00:19.484",
+          "lane": 2,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        }
+      ]
     },
-    {
-      "index": 3,
-      "time_ms": 2987,
-      "time_display": "00:02.987",
-      "lane": 1,
-      "type": "tap",
-      "end_time_ms": null,
-      "duration_ms": null
-    },
-    {
-      "index": 4,
-      "time_ms": 3488,
-      "time_display": "00:03.488",
-      "lane": 2,
-      "type": "tap",
-      "end_time_ms": null,
-      "duration_ms": null
-    },
-    {
-      "index": 5,
-      "time_ms": 3989,
-      "time_display": "00:03.988",
-      "lane": 1,
-      "type": "tap",
-      "end_time_ms": null,
-      "duration_ms": null
-    },
-    {
-      "index": 6,
-      "time_ms": 4491,
-      "time_display": "00:04.490",
-      "lane": 2,
-      "type": "tap",
-      "end_time_ms": null,
-      "duration_ms": null
-    },
-    {
-      "index": 7,
-      "time_ms": 4981,
-      "time_display": "00:04.980",
-      "lane": 1,
-      "type": "tap",
-      "end_time_ms": null,
-      "duration_ms": null
-    },
-    {
-      "index": 8,
-      "time_ms": 5483,
-      "time_display": "00:05.482",
-      "lane": 2,
-      "type": "tap",
-      "end_time_ms": null,
-      "duration_ms": null
-    },
-    {
-      "index": 9,
-      "time_ms": 5984,
-      "time_display": "00:05.984",
-      "lane": 1,
-      "type": "tap",
-      "end_time_ms": null,
-      "duration_ms": null
-    },
-    {
-      "index": 10,
-      "time_ms": 6485,
-      "time_display": "00:06.485",
-      "lane": 2,
-      "type": "tap",
-      "end_time_ms": null,
-      "duration_ms": null
-    },
-    {
-      "index": 11,
-      "time_ms": 6987,
-      "time_display": "00:06.987",
-      "lane": 1,
-      "type": "tap",
-      "end_time_ms": null,
-      "duration_ms": null
-    },
-    {
-      "index": 12,
-      "time_ms": 7488,
-      "time_display": "00:07.488",
-      "lane": 2,
-      "type": "tap",
-      "end_time_ms": null,
-      "duration_ms": null
-    },
-    {
-      "index": 13,
-      "time_ms": 7989,
-      "time_display": "00:07.988",
-      "lane": 1,
-      "type": "tap",
-      "end_time_ms": null,
-      "duration_ms": null
-    },
-    {
-      "index": 14,
-      "time_ms": 8491,
-      "time_display": "00:08.490",
-      "lane": 2,
-      "type": "tap",
-      "end_time_ms": null,
-      "duration_ms": null
-    },
-    {
-      "index": 15,
-      "time_ms": 8981,
-      "time_display": "00:08.980",
-      "lane": 1,
-      "type": "tap",
-      "end_time_ms": null,
-      "duration_ms": null
-    },
-    {
-      "index": 16,
-      "time_ms": 9483,
-      "time_display": "00:09.483",
-      "lane": 2,
-      "type": "tap",
-      "end_time_ms": null,
-      "duration_ms": null
-    },
-    {
-      "index": 17,
-      "time_ms": 9984,
-      "time_display": "00:09.984",
-      "lane": 1,
-      "type": "tap",
-      "end_time_ms": null,
-      "duration_ms": null
-    },
-    {
-      "index": 18,
-      "time_ms": 10485,
-      "time_display": "00:10.484",
-      "lane": 2,
-      "type": "tap",
-      "end_time_ms": null,
-      "duration_ms": null
-    },
-    {
-      "index": 19,
-      "time_ms": 10987,
-      "time_display": "00:10.987",
-      "lane": 1,
-      "type": "tap",
-      "end_time_ms": null,
-      "duration_ms": null
-    },
-    {
-      "index": 20,
-      "time_ms": 11488,
-      "time_display": "00:11.487",
-      "lane": 2,
-      "type": "tap",
-      "end_time_ms": null,
-      "duration_ms": null
-    },
-    {
-      "index": 21,
-      "time_ms": 11989,
-      "time_display": "00:11.989",
-      "lane": 1,
-      "type": "tap",
-      "end_time_ms": null,
-      "duration_ms": null
-    },
-    {
-      "index": 22,
-      "time_ms": 12491,
-      "time_display": "00:12.490",
-      "lane": 2,
-      "type": "tap",
-      "end_time_ms": null,
-      "duration_ms": null
-    },
-    {
-      "index": 23,
-      "time_ms": 12981,
-      "time_display": "00:12.980",
-      "lane": 1,
-      "type": "tap",
-      "end_time_ms": null,
-      "duration_ms": null
-    },
-    {
-      "index": 24,
-      "time_ms": 13483,
-      "time_display": "00:13.483",
-      "lane": 2,
-      "type": "tap",
-      "end_time_ms": null,
-      "duration_ms": null
-    },
-    {
-      "index": 25,
-      "time_ms": 13984,
-      "time_display": "00:13.984",
-      "lane": 1,
-      "type": "tap",
-      "end_time_ms": null,
-      "duration_ms": null
-    },
-    {
-      "index": 26,
-      "time_ms": 14485,
-      "time_display": "00:14.484",
-      "lane": 2,
-      "type": "tap",
-      "end_time_ms": null,
-      "duration_ms": null
-    },
-    {
-      "index": 27,
-      "time_ms": 14987,
-      "time_display": "00:14.987",
-      "lane": 1,
-      "type": "tap",
-      "end_time_ms": null,
-      "duration_ms": null
-    },
-    {
-      "index": 28,
-      "time_ms": 15488,
-      "time_display": "00:15.487",
-      "lane": 2,
-      "type": "tap",
-      "end_time_ms": null,
-      "duration_ms": null
-    },
-    {
-      "index": 29,
-      "time_ms": 15989,
-      "time_display": "00:15.989",
-      "lane": 1,
-      "type": "tap",
-      "end_time_ms": null,
-      "duration_ms": null
-    },
-    {
-      "index": 30,
-      "time_ms": 16491,
-      "time_display": "00:16.490",
-      "lane": 2,
-      "type": "tap",
-      "end_time_ms": null,
-      "duration_ms": null
-    },
-    {
-      "index": 31,
-      "time_ms": 16981,
-      "time_display": "00:16.981",
-      "lane": 1,
-      "type": "tap",
-      "end_time_ms": null,
-      "duration_ms": null
-    },
-    {
-      "index": 32,
-      "time_ms": 17483,
-      "time_display": "00:17.483",
-      "lane": 2,
-      "type": "tap",
-      "end_time_ms": null,
-      "duration_ms": null
-    },
-    {
-      "index": 33,
-      "time_ms": 17984,
-      "time_display": "00:17.984",
-      "lane": 1,
-      "type": "tap",
-      "end_time_ms": null,
-      "duration_ms": null
-    },
-    {
-      "index": 34,
-      "time_ms": 18485,
-      "time_display": "00:18.484",
-      "lane": 2,
-      "type": "tap",
-      "end_time_ms": null,
-      "duration_ms": null
-    },
-    {
-      "index": 35,
-      "time_ms": 18987,
-      "time_display": "00:18.986",
-      "lane": 1,
-      "type": "tap",
-      "end_time_ms": null,
-      "duration_ms": null
-    },
-    {
-      "index": 36,
-      "time_ms": 19488,
-      "time_display": "00:19.487",
-      "lane": 2,
-      "type": "tap",
-      "end_time_ms": null,
-      "duration_ms": null
+    "hell": {
+      "difficulty": "hell",
+      "note_count": 71,
+      "notes": [
+        {
+          "difficulty": "hell",
+          "index": 1,
+          "time_ms": 1984,
+          "time_display": "00:01.984",
+          "lane": 1,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "hell",
+          "index": 2,
+          "time_ms": 2234,
+          "time_display": "00:02.234",
+          "lane": 2,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "hell",
+          "index": 3,
+          "time_ms": 2484,
+          "time_display": "00:02.484",
+          "lane": 1,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "hell",
+          "index": 4,
+          "time_ms": 2734,
+          "time_display": "00:02.734",
+          "lane": 2,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "hell",
+          "index": 5,
+          "time_ms": 2984,
+          "time_display": "00:02.984",
+          "lane": 1,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "hell",
+          "index": 6,
+          "time_ms": 3234,
+          "time_display": "00:03.234",
+          "lane": 2,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "hell",
+          "index": 7,
+          "time_ms": 3484,
+          "time_display": "00:03.484",
+          "lane": 1,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "hell",
+          "index": 8,
+          "time_ms": 3734,
+          "time_display": "00:03.734",
+          "lane": 2,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "hell",
+          "index": 9,
+          "time_ms": 3984,
+          "time_display": "00:03.984",
+          "lane": 1,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "hell",
+          "index": 10,
+          "time_ms": 4234,
+          "time_display": "00:04.234",
+          "lane": 2,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "hell",
+          "index": 11,
+          "time_ms": 4484,
+          "time_display": "00:04.484",
+          "lane": 1,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "hell",
+          "index": 12,
+          "time_ms": 4734,
+          "time_display": "00:04.734",
+          "lane": 2,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "hell",
+          "index": 13,
+          "time_ms": 4984,
+          "time_display": "00:04.984",
+          "lane": 1,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "hell",
+          "index": 14,
+          "time_ms": 5234,
+          "time_display": "00:05.234",
+          "lane": 2,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "hell",
+          "index": 15,
+          "time_ms": 5484,
+          "time_display": "00:05.484",
+          "lane": 1,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "hell",
+          "index": 16,
+          "time_ms": 5734,
+          "time_display": "00:05.734",
+          "lane": 2,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "hell",
+          "index": 17,
+          "time_ms": 5984,
+          "time_display": "00:05.984",
+          "lane": 1,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "hell",
+          "index": 18,
+          "time_ms": 6234,
+          "time_display": "00:06.234",
+          "lane": 2,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "hell",
+          "index": 19,
+          "time_ms": 6484,
+          "time_display": "00:06.484",
+          "lane": 1,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "hell",
+          "index": 20,
+          "time_ms": 6734,
+          "time_display": "00:06.734",
+          "lane": 2,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "hell",
+          "index": 21,
+          "time_ms": 6984,
+          "time_display": "00:06.984",
+          "lane": 1,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "hell",
+          "index": 22,
+          "time_ms": 7234,
+          "time_display": "00:07.234",
+          "lane": 2,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "hell",
+          "index": 23,
+          "time_ms": 7484,
+          "time_display": "00:07.484",
+          "lane": 1,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "hell",
+          "index": 24,
+          "time_ms": 7734,
+          "time_display": "00:07.734",
+          "lane": 2,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "hell",
+          "index": 25,
+          "time_ms": 7984,
+          "time_display": "00:07.984",
+          "lane": 1,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "hell",
+          "index": 26,
+          "time_ms": 8234,
+          "time_display": "00:08.234",
+          "lane": 2,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "hell",
+          "index": 27,
+          "time_ms": 8484,
+          "time_display": "00:08.484",
+          "lane": 1,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "hell",
+          "index": 28,
+          "time_ms": 8734,
+          "time_display": "00:08.734",
+          "lane": 2,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "hell",
+          "index": 29,
+          "time_ms": 8984,
+          "time_display": "00:08.984",
+          "lane": 1,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "hell",
+          "index": 30,
+          "time_ms": 9234,
+          "time_display": "00:09.234",
+          "lane": 2,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "hell",
+          "index": 31,
+          "time_ms": 9484,
+          "time_display": "00:09.484",
+          "lane": 1,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "hell",
+          "index": 32,
+          "time_ms": 9734,
+          "time_display": "00:09.734",
+          "lane": 2,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "hell",
+          "index": 33,
+          "time_ms": 9984,
+          "time_display": "00:09.984",
+          "lane": 1,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "hell",
+          "index": 34,
+          "time_ms": 10234,
+          "time_display": "00:10.234",
+          "lane": 2,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "hell",
+          "index": 35,
+          "time_ms": 10484,
+          "time_display": "00:10.484",
+          "lane": 1,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "hell",
+          "index": 36,
+          "time_ms": 10734,
+          "time_display": "00:10.734",
+          "lane": 2,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "hell",
+          "index": 37,
+          "time_ms": 10984,
+          "time_display": "00:10.984",
+          "lane": 1,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "hell",
+          "index": 38,
+          "time_ms": 11234,
+          "time_display": "00:11.234",
+          "lane": 2,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "hell",
+          "index": 39,
+          "time_ms": 11484,
+          "time_display": "00:11.484",
+          "lane": 1,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "hell",
+          "index": 40,
+          "time_ms": 11734,
+          "time_display": "00:11.734",
+          "lane": 2,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "hell",
+          "index": 41,
+          "time_ms": 11984,
+          "time_display": "00:11.984",
+          "lane": 1,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "hell",
+          "index": 42,
+          "time_ms": 12234,
+          "time_display": "00:12.234",
+          "lane": 2,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "hell",
+          "index": 43,
+          "time_ms": 12484,
+          "time_display": "00:12.484",
+          "lane": 1,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "hell",
+          "index": 44,
+          "time_ms": 12734,
+          "time_display": "00:12.734",
+          "lane": 2,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "hell",
+          "index": 45,
+          "time_ms": 12984,
+          "time_display": "00:12.984",
+          "lane": 1,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "hell",
+          "index": 46,
+          "time_ms": 13234,
+          "time_display": "00:13.234",
+          "lane": 2,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "hell",
+          "index": 47,
+          "time_ms": 13484,
+          "time_display": "00:13.484",
+          "lane": 1,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "hell",
+          "index": 48,
+          "time_ms": 13734,
+          "time_display": "00:13.734",
+          "lane": 2,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "hell",
+          "index": 49,
+          "time_ms": 13984,
+          "time_display": "00:13.984",
+          "lane": 1,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "hell",
+          "index": 50,
+          "time_ms": 14234,
+          "time_display": "00:14.234",
+          "lane": 2,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "hell",
+          "index": 51,
+          "time_ms": 14484,
+          "time_display": "00:14.484",
+          "lane": 1,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "hell",
+          "index": 52,
+          "time_ms": 14734,
+          "time_display": "00:14.734",
+          "lane": 2,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "hell",
+          "index": 53,
+          "time_ms": 14984,
+          "time_display": "00:14.984",
+          "lane": 1,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "hell",
+          "index": 54,
+          "time_ms": 15234,
+          "time_display": "00:15.234",
+          "lane": 2,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "hell",
+          "index": 55,
+          "time_ms": 15484,
+          "time_display": "00:15.484",
+          "lane": 1,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "hell",
+          "index": 56,
+          "time_ms": 15734,
+          "time_display": "00:15.734",
+          "lane": 2,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "hell",
+          "index": 57,
+          "time_ms": 15984,
+          "time_display": "00:15.984",
+          "lane": 1,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "hell",
+          "index": 58,
+          "time_ms": 16234,
+          "time_display": "00:16.234",
+          "lane": 2,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "hell",
+          "index": 59,
+          "time_ms": 16484,
+          "time_display": "00:16.484",
+          "lane": 1,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "hell",
+          "index": 60,
+          "time_ms": 16734,
+          "time_display": "00:16.734",
+          "lane": 2,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "hell",
+          "index": 61,
+          "time_ms": 16984,
+          "time_display": "00:16.984",
+          "lane": 1,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "hell",
+          "index": 62,
+          "time_ms": 17234,
+          "time_display": "00:17.234",
+          "lane": 2,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "hell",
+          "index": 63,
+          "time_ms": 17484,
+          "time_display": "00:17.484",
+          "lane": 1,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "hell",
+          "index": 64,
+          "time_ms": 17734,
+          "time_display": "00:17.734",
+          "lane": 2,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "hell",
+          "index": 65,
+          "time_ms": 17984,
+          "time_display": "00:17.984",
+          "lane": 1,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "hell",
+          "index": 66,
+          "time_ms": 18234,
+          "time_display": "00:18.234",
+          "lane": 2,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "hell",
+          "index": 67,
+          "time_ms": 18484,
+          "time_display": "00:18.484",
+          "lane": 1,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "hell",
+          "index": 68,
+          "time_ms": 18734,
+          "time_display": "00:18.734",
+          "lane": 2,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "hell",
+          "index": 69,
+          "time_ms": 18984,
+          "time_display": "00:18.984",
+          "lane": 1,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "hell",
+          "index": 70,
+          "time_ms": 19234,
+          "time_display": "00:19.234",
+          "lane": 2,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        },
+        {
+          "difficulty": "hell",
+          "index": 71,
+          "time_ms": 19484,
+          "time_display": "00:19.484",
+          "lane": 1,
+          "type": "tap",
+          "end_time_ms": null,
+          "duration_ms": null
+        }
+      ]
     }
-  ]
+  }
 }

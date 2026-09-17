@@ -172,20 +172,9 @@
 
   function markDirty() {
     state.dirty = true;
-    scheduleLocalSave();
   }
 
-  let saveTimer;
-  function scheduleLocalSave() {
-    clearTimeout(saveTimer);
-    saveTimer = setTimeout(() => {
-      try {
-        localStorage.setItem('rhythm-studio-autosave', JSON.stringify(projectData(false)));
-      } catch (_) { /* local storage can be unavailable */ }
-    }, 500);
-  }
-
-  function projectData(includeVersion = true) {
+  function projectData() {
     const duration = els.audio.duration || state.audioBuffer?.duration || state.projectDuration || 0;
     const audioReference = state.audioFile ? {
       sourceKind: 'local-file',
@@ -197,7 +186,8 @@
       duration: Number(duration.toFixed(3))
     } : state.pendingAudioReference;
     return {
-      ...(includeVersion ? { format: 'rhythm-chart-studio', version: 4 } : {}),
+      format: 'rhythm-chart-studio',
+      version: 4,
       name: els.projectName.value.trim() || '未命名谱面',
       audio: audioReference || null,
       bpm: Number(state.bpm.toFixed(2)),
@@ -1525,7 +1515,9 @@
       const data = JSON.parse(await file.text());
       if (!Array.isArray(data.beats)) throw new Error('missing beats');
       if ((state.beats.length || totalNoteCount()) && !confirm('打开工程会替换当前节拍和三套难度谱面，继续吗？')) return;
-      snapshot();
+      state.history = [];
+      state.future = [];
+      updateHistoryButtons();
       state.beats = data.beats.map(beat => ({
         id: makeId(), time: Number(beat.time) || 0,
         type: ['beat','accent','note'].includes(beat.type) ? beat.type : 'beat',
@@ -1568,7 +1560,7 @@
       if (!currentAudioMatches) detachAudioForProject(data.audio || null);
       else state.pendingAudioReference = null;
       renderAll();
-      markDirty();
+      state.dirty = false;
       const audioHint = currentAudioMatches ? '音乐已自动匹配。' : data.audio?.name ? `请重新关联音乐“${data.audio.name}”。` : '该工程没有音乐引用。';
       toast(`工程已打开：${state.beats.length} 个节拍、三档共 ${totalNoteCount()} 个音符。${audioHint}`);
     } catch (error) {
@@ -1839,7 +1831,11 @@
   });
   els.saveProjectBtn.addEventListener('click', saveProject);
   els.openProjectBtn.addEventListener('click', () => els.projectFile.click());
-  els.projectFile.addEventListener('change', event => openProject(event.target.files[0]));
+  els.projectFile.addEventListener('change', async event => {
+    const file = event.target.files[0];
+    if (file) await openProject(file);
+    event.target.value = '';
+  });
   els.exportGameCsvBtn.addEventListener('click', exportGameCsv);
   els.exportGameJsonBtn.addEventListener('click', exportGameJson);
   els.exportBeatCsvBtn.addEventListener('click', exportBeatCsv);
@@ -1919,43 +1915,6 @@
 
   window.addEventListener('resize', () => { cancelAnimationFrame(resizeFrame); resizeFrame = requestAnimationFrame(resizeCanvas); });
   window.addEventListener('beforeunload', event => { if (state.dirty && (state.beats.length || totalNoteCount())) { event.preventDefault(); event.returnValue = ''; } });
-
-  try {
-    const saved = JSON.parse(localStorage.getItem('rhythm-studio-autosave') || 'null');
-    if (saved && (saved.beats?.length || saved.notes?.length || saved.charts)) {
-      els.projectName.value = saved.name || '未命名谱面';
-      state.beats = saved.beats.map(beat => ({ ...beat, id: makeId() }));
-      state.bpm = Number(saved.bpm) || 0;
-      state.beatOffset = Number(saved.beatOffset) || 0;
-      state.projectDuration = Number(saved.duration || saved.audio?.duration) || 0;
-      state.pendingAudioReference = saved.audio || null;
-      state.laneCount = Math.max(2, Math.min(6, Number(saved.laneCount) || 4));
-      const settings = saved.settings || {};
-      state.chartDifficulty = DIFFICULTY_PRESETS[settings.chartDifficulty] ? settings.chartDifficulty : 'standard';
-      state.charts = emptyCharts();
-      if (saved.charts) {
-        DIFFICULTY_KEYS.forEach(key => { state.charts[key] = importChartNotes(savedChartNotes(saved, key), state.laneCount); });
-      } else {
-        state.charts[state.chartDifficulty] = importChartNotes(saved.notes, state.laneCount);
-      }
-      state.notes = state.charts[state.chartDifficulty];
-      els.laneCount.value = String(state.laneCount);
-      if ([0,1,2,4].includes(Number(saved.snapDivision))) els.snapDivision.value = String(saved.snapDivision);
-      setChartDifficulty(settings.chartDifficulty, false);
-      if (['concise','standard','detailed'].includes(settings.analysisDensity)) els.analysisDensity.value = settings.analysisDensity;
-      if (Number.isFinite(Number(settings.sensitivity))) els.sensitivity.value = String(Math.max(0, Math.min(100, Number(settings.sensitivity))));
-      els.sensitivityValue.textContent = `${els.sensitivity.value}%`;
-      if ([.5,.75,1,1.25].includes(Number(settings.playbackRate))) els.playbackRate.value = String(settings.playbackRate);
-      els.metronome.checked = Boolean(settings.metronome);
-      if (['tap','hold'].includes(settings.noteType)) els.noteType.value = settings.noteType;
-      if ([1,2,4].includes(Number(settings.holdLength))) els.holdLength.value = String(settings.holdLength);
-      els.holdLengthWrap.classList.toggle('hidden', els.noteType.value !== 'hold');
-      els.bpmValue.textContent = state.bpm ? state.bpm.toFixed(1) : '—';
-      els.analysisResult.classList.remove('hidden');
-      if (saved.audio?.name) els.timelineHint.textContent = `请重新关联音乐“${saved.audio.name}”`;
-      toast(`已恢复上次未导出的 ${state.beats.length} 个节拍和三档共 ${totalNoteCount()} 个音符，请重新关联音乐`);
-    }
-  } catch (_) { /* ignore corrupt autosave */ }
 
   resizeCanvas();
   renderAll();

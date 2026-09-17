@@ -29,6 +29,7 @@ namespace RhythmCurveDemo
         [Min(8)] public int initialPoolSize = 32;
 
         private readonly List<RuntimeNote> runtimeNotes = new List<RuntimeNote>();
+        private readonly List<AvailableDifficulty> availableDifficulties = new List<AvailableDifficulty>();
         private readonly Queue<NoteView> notePool = new Queue<NoteView>();
         private RhythmChart chart;
         private int difficultyIndex;
@@ -62,6 +63,12 @@ namespace RhythmCurveDemo
             public NoteView view;
         }
 
+        private class AvailableDifficulty
+        {
+            public DifficultyProfile profile;
+            public ChartDifficulty chart;
+        }
+
         private void Awake()
         {
             Application.targetFrameRate = 120;
@@ -77,7 +84,7 @@ namespace RhythmCurveDemo
             difficultyIndex = 0;
             if (Environment.GetCommandLineArgs().Contains("-smokeTest"))
             {
-                difficultyIndex = Mathf.Min(2, difficulties.Length - 1);
+                difficultyIndex = Mathf.Max(0, availableDifficulties.Count - 1);
                 BeginGame();
                 StartCoroutine(RunSmokeTest());
             }
@@ -93,12 +100,15 @@ namespace RhythmCurveDemo
         private IEnumerator RunSmokeTest()
         {
             yield return new WaitForSecondsRealtime(4f);
-            bool passed = chart != null && chart.notes != null && chart.notes.Length > 0 &&
-                          runtimeNotes.Count >= chart.notes.Length && audioSource.clip != null &&
-                          createdNoteViews == initialPoolSize;
+            AvailableDifficulty selected = GetSelectedDifficulty();
+            int sourceNoteCount = selected?.chart?.notes?.Length ?? 0;
+            bool emptyDifficultyFilterPassed = VerifyEmptyDifficultyFiltering();
+            bool passed = chart != null && availableDifficulties.Count > 0 && sourceNoteCount > 0 &&
+                          runtimeNotes.Count == sourceNoteCount && audioSource.clip != null &&
+                          createdNoteViews == initialPoolSize && emptyDifficultyFilterPassed;
             string message = $"RHYTHM_SMOKE_{(passed ? "PASS" : "FAIL")} " +
-                             $"sourceNotes={chart?.notes?.Length ?? 0} generatedNotes={runtimeNotes.Count} " +
-                             $"difficulty={difficulties[difficultyIndex].displayName} " +
+                             $"availableDifficulties={availableDifficulties.Count} sourceNotes={sourceNoteCount} runtimeNotes={runtimeNotes.Count} " +
+                             $"difficulty={selected?.profile?.displayName ?? "none"} emptyDifficultyFilter={emptyDifficultyFilterPassed} " +
                              $"dspSongTime={GetSongTime():0.000} pooledViews={createdNoteViews}";
             if (passed) Debug.Log(message); else Debug.LogError(message);
             Application.Quit(passed ? 0 : 1);
@@ -116,8 +126,44 @@ namespace RhythmCurveDemo
                 .Replace("\"end_time_ms\": null", "\"end_time_ms\": 0")
                 .Replace("\"duration_ms\": null", "\"duration_ms\": 0");
             chart = JsonUtility.FromJson<RhythmChart>(safeJson);
-            if (chart == null || chart.notes == null)
+            if (chart == null || chart.charts == null)
+            {
                 Debug.LogError("Could not parse rhythm chart.");
+                return;
+            }
+
+            availableDifficulties.Clear();
+            availableDifficulties.AddRange(FindAvailableDifficulties(chart));
+
+            if (availableDifficulties.Count == 0)
+                Debug.LogError("No playable difficulty was found in game.json. Empty difficulties are hidden.");
+        }
+
+        private List<AvailableDifficulty> FindAvailableDifficulties(RhythmChart source)
+        {
+            List<AvailableDifficulty> result = new List<AvailableDifficulty>();
+            foreach (DifficultyProfile profile in difficulties ?? Array.Empty<DifficultyProfile>())
+            {
+                if (profile == null || string.IsNullOrWhiteSpace(profile.chartKey)) continue;
+                ChartDifficulty difficultyChart = source?.GetChart(profile.chartKey);
+                if (difficultyChart?.notes == null || difficultyChart.notes.Length == 0) continue;
+                result.Add(new AvailableDifficulty { profile = profile, chart = difficultyChart });
+            }
+            return result;
+        }
+
+        private bool VerifyEmptyDifficultyFiltering()
+        {
+            RhythmChart testChart = new RhythmChart
+            {
+                charts = new ChartCollection
+                {
+                    standard = new ChartDifficulty { notes = Array.Empty<ChartNote>() },
+                    hard = new ChartDifficulty { notes = new[] { new ChartNote { lane = 1 } } }
+                }
+            };
+            List<AvailableDifficulty> filtered = FindAvailableDifficulties(testChart);
+            return filtered.Count == 1 && filtered[0].profile.chartKey == "hard";
         }
 
         private void WarmPool()
@@ -149,53 +195,31 @@ namespace RhythmCurveDemo
         private void BuildDifficultyChart()
         {
             runtimeNotes.Clear();
-            DifficultyProfile profile = difficulties[difficultyIndex];
-            ChartNote[] source = chart.notes.OrderBy(note => note.time_ms).ToArray();
-            float duration = Mathf.Max(.001f, chart.audio != null ? chart.audio.duration_ms / 1000f : music.length);
+            AvailableDifficulty selected = GetSelectedDifficulty();
+            if (selected == null) return;
+            ChartNote[] source = selected.chart.notes.OrderBy(note => note.time_ms).ToArray();
             int laneCount = Mathf.Min(laneSpawnPoints.Length, laneHitPoints.Length);
 
-            for (int i = 0; i < source.Length; i++)
+            foreach (ChartNote chartNote in source)
             {
-                float time = source[i].time_ms / 1000f;
-                int lane = Mathf.Clamp(source[i].lane - 1, 0, laneCount - 1);
-                AddRuntimeNote(time, lane);
-
-                float progress = time / duration;
-                if (laneCount == 2 && Hash01(i, 11) < profile.EvaluateChordChance(progress))
-                    AddRuntimeNote(time, 1 - lane);
-
-                if (i >= source.Length - 1) continue;
-                float nextTime = source[i + 1].time_ms / 1000f;
-                float gap = nextTime - time;
-                if (gap < .22f || gap > 1.05f) continue;
-                if (Hash01(i, 37) < profile.EvaluateExtraChance(progress))
-                    AddRuntimeNote(time + gap * .5f, laneCount == 2 ? 1 - lane : (lane + 1) % laneCount);
+                float time = chartNote.time_ms / 1000f;
+                int lane = Mathf.Clamp(chartNote.lane - 1, 0, laneCount - 1);
+                runtimeNotes.Add(new RuntimeNote { time = time, lane = lane });
             }
 
             runtimeNotes.Sort((a, b) => a.time != b.time ? a.time.CompareTo(b.time) : a.lane.CompareTo(b.lane));
         }
 
-        private static float Hash01(int index, int salt)
+        private AvailableDifficulty GetSelectedDifficulty()
         {
-            unchecked
-            {
-                uint value = (uint)(index * 747796405 + salt * 2891336453);
-                value = (value >> ((int)(value >> 28) + 4)) ^ value;
-                value *= 277803737u;
-                value = (value >> 22) ^ value;
-                return (value & 0x00FFFFFF) / 16777216f;
-            }
-        }
-
-        private void AddRuntimeNote(float time, int lane)
-        {
-            if (runtimeNotes.Any(note => Mathf.Abs(note.time - time) < .002f && note.lane == lane)) return;
-            runtimeNotes.Add(new RuntimeNote { time = time, lane = lane });
+            if (availableDifficulties.Count == 0) return null;
+            difficultyIndex = Mathf.Clamp(difficultyIndex, 0, availableDifficulties.Count - 1);
+            return availableDifficulties[difficultyIndex];
         }
 
         private void BeginGame()
         {
-            if (chart == null || music == null || difficulties == null || difficulties.Length < 3) return;
+            if (chart == null || music == null || availableDifficulties.Count == 0) return;
             ClearNotes();
             BuildDifficultyChart();
             nextSpawnIndex = 0;
@@ -258,9 +282,9 @@ namespace RhythmCurveDemo
             }
             if (!playing)
             {
-                if (Input.GetKeyDown(KeyCode.Alpha1)) difficultyIndex = 0;
-                if (Input.GetKeyDown(KeyCode.Alpha2)) difficultyIndex = 1;
-                if (Input.GetKeyDown(KeyCode.Alpha3)) difficultyIndex = 2;
+                if (Input.GetKeyDown(KeyCode.Alpha1) && availableDifficulties.Count > 0) difficultyIndex = 0;
+                if (Input.GetKeyDown(KeyCode.Alpha2) && availableDifficulties.Count > 1) difficultyIndex = 1;
+                if (Input.GetKeyDown(KeyCode.Alpha3) && availableDifficulties.Count > 2) difficultyIndex = 2;
                 if (Input.GetKeyDown(KeyCode.Return)) BeginGame();
                 return;
             }
@@ -270,7 +294,7 @@ namespace RhythmCurveDemo
 
             float songTime = (float)GetSongTime();
             float progress = music.length > 0 ? songTime / music.length : 0;
-            DifficultyProfile profile = difficulties[difficultyIndex];
+            DifficultyProfile profile = GetSelectedDifficulty().profile;
             float approach = profile.EvaluateApproachTime(progress);
             float hitWindow = profile.EvaluateHitWindow(progress);
 
@@ -332,13 +356,13 @@ namespace RhythmCurveDemo
             if (error <= perfectWindow)
             {
                 perfects++;
-                score += Mathf.RoundToInt(1000 * difficulties[difficultyIndex].scoreMultiplier);
+                score += Mathf.RoundToInt(1000 * GetSelectedDifficulty().profile.scoreMultiplier);
                 ShowJudgement("PERFECT");
             }
             else
             {
                 goods++;
-                score += Mathf.RoundToInt(500 * difficulties[difficultyIndex].scoreMultiplier);
+                score += Mathf.RoundToInt(500 * GetSelectedDifficulty().profile.scoreMultiplier);
                 ShowJudgement("GOOD");
             }
         }
@@ -392,20 +416,31 @@ namespace RhythmCurveDemo
             GUI.Box(new Rect(x, y, width, 410), GUIContent.none);
             GUI.Label(new Rect(x + 20, y + 22, width - 40, 40), "选择难度 / SELECT DIFFICULTY", centerStyle);
 
-            for (int i = 0; i < difficulties.Length; i++)
+            if (availableDifficulties.Count == 0)
             {
-                DifficultyProfile profile = difficulties[i];
+                GUI.Label(new Rect(x + 45, y + 105, width - 90, 100), "game.json 中没有包含音符的可用难度。\n请回到节拍工坊生成或编辑谱面后重新导出。", centerStyle);
+                return;
+            }
+
+            float buttonsWidth = width - 110;
+            float gap = 10f;
+            float buttonWidth = (buttonsWidth - gap * (availableDifficulties.Count - 1)) / availableDifficulties.Count;
+            for (int i = 0; i < availableDifficulties.Count; i++)
+            {
+                AvailableDifficulty available = availableDifficulties[i];
+                DifficultyProfile profile = available.profile;
                 GUI.color = i == difficultyIndex ? profile.accentColor : Color.white;
-                if (GUI.Button(new Rect(x + 55 + i * ((width - 110) / 3f), y + 82, (width - 140) / 3f, 64), $"{i + 1}  {profile.displayName}", buttonStyle))
+                if (GUI.Button(new Rect(x + 55 + i * (buttonWidth + gap), y + 82, buttonWidth, 64), $"{i + 1}  {profile.displayName}\n{available.chart.notes.Length} NOTES", buttonStyle))
                     difficultyIndex = i;
                 GUI.color = Color.white;
             }
 
-            DifficultyProfile selected = difficulties[difficultyIndex];
+            AvailableDifficulty selectedDifficulty = GetSelectedDifficulty();
+            DifficultyProfile selected = selectedDifficulty.profile;
             float midProgress = .5f;
             GUI.Label(new Rect(x + 45, y + 170, width - 90, 32), selected.description, centerStyle);
             GUI.Label(new Rect(x + 70, y + 215, width - 140, 80),
-                $"额外音符概率：{selected.EvaluateExtraChance(midProgress) * 100:0}%    双押概率：{selected.EvaluateChordChance(midProgress) * 100:0}%\n" +
+                $"谱面音符：{selectedDifficulty.chart.notes.Length}    JSON：charts.{selected.chartKey}\n" +
                 $"提前出现：{selected.EvaluateApproachTime(midProgress):0.00}s    判定窗口：±{selected.EvaluateHitWindow(midProgress) * 1000:0}ms",
                 centerStyle);
             GUI.color = selected.accentColor;
@@ -416,7 +451,9 @@ namespace RhythmCurveDemo
 
         private void DrawPlayingHud()
         {
-            DifficultyProfile profile = difficulties[difficultyIndex];
+            AvailableDifficulty selected = GetSelectedDifficulty();
+            if (selected == null) return;
+            DifficultyProfile profile = selected.profile;
             GUI.Label(new Rect(Screen.width - 260, 12, 235, 30), profile.displayName, new GUIStyle(labelStyle) { alignment = TextAnchor.MiddleRight, normal = { textColor = profile.accentColor } });
             GUI.Label(new Rect(24, 92, 320, 32), $"SCORE  {score:0000000}", labelStyle);
             GUI.Label(new Rect(24, 124, 320, 32), $"COMBO  {combo}", labelStyle);

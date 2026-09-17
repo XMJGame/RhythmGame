@@ -7,7 +7,7 @@
     <meta name="description" content="在浏览器中分析音乐、编辑节拍并导出游戏谱面。" />
     <title>节拍工坊 · Rhythm Chart Studio</title>
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230b0f13'/%3E%3Cpath d='M12 38h8l5-18 8 31 7-25 5 12h7' fill='none' stroke='%23ffcc33' stroke-width='6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
-    <link rel="stylesheet" href="./styles.css" />
+    <link rel="stylesheet" href="./styles.css?v=20260917-empty-start-1" />
   </head>
   <body>
     <div class="app-shell">
@@ -235,7 +235,7 @@
           <section class="help-section help-chapter" aria-labelledby="helpExportTitle">
             <div class="chapter-title"><b>04</b><div><h3 id="helpExportTitle">保存与导出：根据下一步用途选择</h3><p>继续制作选“保存工程”；接入游戏选“游戏谱面”。</p></div></div>
             <div class="export-help-grid">
-              <article class="export-help-card project"><span>继续编辑</span><h4>保存完整工程 · .rhythm.json</h4><p>保存节拍、三套难度谱面、BPM 和编辑设置。以后打开工程时，三档的独立编辑内容都会恢复。</p><small>浏览器不会保存音乐文件本身或电脑中的绝对路径；重新打开工程时，需要再次选择原来的音乐进行关联。</small></article>
+              <article class="export-help-card project"><span>继续编辑</span><h4>保存完整工程 · .rhythm.json</h4><p>保存节拍、三套难度谱面、BPM 和编辑设置。下次打开网页时默认是空工程，需要手动点击“打开工程文件”恢复。</p><small>网页不会自动保存工程，也不会把音乐文件或电脑绝对路径写入工程；重新打开后需再次选择原音乐。</small></article>
               <article class="export-help-card"><span>给游戏读取</span><h4>游戏谱面 · JSON / CSV</h4><p>一次导出标准、困难、地狱三档。JSON 按 <code>charts.standard / hard / hell</code> 分组；CSV 用 <code>difficulty</code> 列区分，其他音符字段与 JSON 一致。</p></article>
               <article class="export-help-card"><span>保留分析结果</span><h4>节拍列表 · JSON / CSV</h4><p>只导出音乐的节拍时间、类型、强度和备注，不包含轨道音符。适合复用节拍、检查分析结果或交给其他制谱流程。</p></article>
               <article class="export-help-card fields"><span>字段速查</span><h4>数据里的常见名称</h4><p><code>difficulty</code>：standard / hard / hell；<code>time_ms</code>：毫秒时间；<code>lane</code>：从 1 开始的轨道号；<code>tap</code>：点击；<code>hold</code>：长按；<code>end_time_ms</code>：长按结束时间。</p></article>
@@ -246,6 +246,6 @@
       </article>
     </div>
     <audio id="audio" preload="metadata"></audio>
-    <script src="./app.js"></script>
+    <script src="./app.js?v=20260917-empty-start-1"></script>
   </body>
 </html>

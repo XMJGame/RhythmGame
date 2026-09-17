@@ -1,5 +1,6 @@
 using System.IO;
 using UnityEditor;
+using UnityEditor.Build.Reporting;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -23,21 +24,18 @@ namespace RhythmCurveDemo.Editor
             AssetDatabase.Refresh();
 
             DifficultyProfile standard = CreateProfile(
-                "Standard", "标准", "保持 JSON 原谱，适合第一次试玩",
+                "Standard", "standard", "标准", "读取 JSON 标准谱面，适合第一次试玩",
                 new Color(1f, .82f, .2f), 1f,
-                Curve(0, 0, 1, 0), Curve(0, 0, 1, 0),
                 Curve(0, 3.2f, 1, 2.8f), Curve(0, .18f, 1, .15f));
 
             DifficultyProfile hard = CreateProfile(
-                "Hard", "困难", "中后段逐渐增加半拍音符并加快下落",
+                "Hard", "hard", "困难", "读取 JSON 困难谱面，下落更快、判定更严格",
                 new Color(.25f, .9f, 1f), 1.35f,
-                Curve(0, .2f, .55f, .48f, 1, .72f), Curve(0, 0, 1, .18f),
                 Curve(0, 2.65f, 1, 1.95f), Curve(0, .145f, 1, .105f));
 
             DifficultyProfile hell = CreateProfile(
-                "Hell", "地狱", "半拍与双押逐段增多，速度越来越快",
+                "Hell", "hell", "地狱", "读取 JSON 地狱谱面，使用最快速度和最严格判定",
                 new Color(1f, .23f, .38f), 1.75f,
-                Curve(0, .72f, .5f, .9f, 1, 1f), Curve(0, .08f, .55f, .22f, 1, .42f),
                 Curve(0, 2.05f, .5f, 1.55f, 1, 1.05f), Curve(0, .115f, 1, .075f));
 
             Material trackMaterial = CreateMaterial("TrackBase", new Color(.045f, .065f, .1f));
@@ -108,6 +106,25 @@ namespace RhythmCurveDemo.Editor
             EditorApplication.delayCall += () => EditorApplication.isPlaying = true;
         }
 
+        [MenuItem("Rhythm Game/Build Windows Demo")]
+        public static void BuildWindowsPlayer()
+        {
+            string projectRoot = Path.GetDirectoryName(Application.dataPath);
+            string outputDirectory = Path.Combine(projectRoot, "Builds", "Windows");
+            Directory.CreateDirectory(outputDirectory);
+            BuildPlayerOptions options = new BuildPlayerOptions
+            {
+                scenes = new[] { "Assets/Scenes/Main.unity" },
+                locationPathName = Path.Combine(outputDirectory, "RhythmCurveDemo.exe"),
+                target = BuildTarget.StandaloneWindows64,
+                options = BuildOptions.None
+            };
+            BuildReport report = BuildPipeline.BuildPlayer(options);
+            if (report.summary.result != BuildResult.Succeeded)
+                throw new System.Exception($"Windows build failed: {report.summary.result}");
+            Debug.Log($"Windows build succeeded: {report.summary.totalSize} bytes");
+        }
+
         private static Camera CreateCamera()
         {
             GameObject cameraObject = new GameObject("Main Camera");
@@ -170,8 +187,8 @@ namespace RhythmCurveDemo.Editor
             return prefab.GetComponent<NoteView>();
         }
 
-        private static DifficultyProfile CreateProfile(string fileName, string displayName, string description, Color color,
-            float multiplier, AnimationCurve extra, AnimationCurve chord, AnimationCurve approach, AnimationCurve hitWindow)
+        private static DifficultyProfile CreateProfile(string fileName, string chartKey, string displayName, string description, Color color,
+            float multiplier, AnimationCurve approach, AnimationCurve hitWindow)
         {
             string path = $"{DifficultyFolder}/{fileName}.asset";
             DifficultyProfile profile = AssetDatabase.LoadAssetAtPath<DifficultyProfile>(path);
@@ -180,12 +197,11 @@ namespace RhythmCurveDemo.Editor
                 profile = ScriptableObject.CreateInstance<DifficultyProfile>();
                 AssetDatabase.CreateAsset(profile, path);
             }
+            profile.chartKey = chartKey;
             profile.displayName = displayName;
             profile.description = description;
             profile.accentColor = color;
             profile.scoreMultiplier = multiplier;
-            profile.extraNoteChanceCurve = extra;
-            profile.chordChanceCurve = chord;
             profile.approachTimeCurve = approach;
             profile.hitWindowCurve = hitWindow;
             EditorUtility.SetDirty(profile);

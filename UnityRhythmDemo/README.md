@@ -7,7 +7,7 @@
 1. 用 Unity Hub 打开本目录，编辑器版本选择 `2021.3.40f1`。
 2. 打开 `Assets/Scenes/Main.unity`。
 3. 点击 Play。
-4. 菜单中选择“标准 / 困难 / 地狱”，再开始游戏。
+4. 菜单只显示 `game.json` 中实际包含音符的难度，选择后开始游戏。
 
 ## 操作
 
@@ -22,18 +22,21 @@
 - 谱面：`Assets/Charts/game.json`
 - 音乐：`Assets/Audio/节拍测试曲-120BPM-第一拍2秒.wav`
 
-JSON 中的 `lane` 从 1 开始，运行时会转换为 Unity 内部从 0 开始的索引。
+Unity 直接读取 `charts.standard / charts.hard / charts.hell` 中已经编辑好的音符，不再自行增加半拍或双押。JSON 中的 `lane` 从 1 开始，运行时会转换为 Unity 内部从 0 开始的索引。
+
+某个难度的 `notes` 为空、缺失，或者没有音符时，该难度不会出现在选择菜单中。如果只有一档有数据，菜单中就只显示这一档。
+
+当前 Demo 场景是双轨，支持本次谱面的 `tap` 音符；网页工具导出的其他轨道数或长按音符，需要另行扩展 Unity 场景和判定逻辑。
 
 ## 曲线难度配置
 
 三个配置位于 `Assets/Difficulties/`，选中后可在 Inspector 直接编辑：
 
-- `Extra Note Chance`：在相邻 JSON 音符之间插入额外音符的概率曲线。
-- `Chord Chance`：原音符生成双押的概率曲线。
+- `Chart Key`：对应 JSON 中的 `standard / hard / hell`。
 - `Approach Time`：音符提前多少秒进入轨道；数值越小，看起来越快。
 - `Hit Window`：判定窗口秒数；数值越小越严格。
 
-曲线横轴统一是歌曲进度 `0 → 1`。标准模式保持 JSON 原谱；困难和地狱通过曲线逐段增加密度、速度和判定压力。
+曲线横轴统一是歌曲进度 `0 → 1`。谱面密度完全由网页节拍工坊导出的三套音符决定；Unity 曲线只控制下落速度和判定压力，不会偷偷修改谱面。
 
 ## 工程结构
 
@@ -44,3 +47,5 @@ JSON 中的 `lane` 从 1 开始，运行时会转换为 Unity 内部从 0 开始
 - `RhythmGameController.inputOffsetMs` 用于以后校准键盘、音频设备造成的输入延迟。
 
 如果替换 `game.json` 或音乐，保持文件名不变后回到 Unity 等待重新导入即可。若要改名，请同时在场景中的 `RhythmGameController` 重新关联资源。
+
+可通过 Unity 菜单 `Rhythm Game > Build Windows Demo` 构建本地 Windows 试玩版，输出到工程内 `Builds/Windows/RhythmCurveDemo.exe`。本次没有部署到局域网或网站。
