@@ -3,7 +3,7 @@
 
   const $ = (id) => document.getElementById(id);
   const els = Object.fromEntries([
-    'audio','audioFile','projectFile','dropZone','fileCard','fileName','fileMeta','replaceAudioBtn','analyzeBtn','analysisDensity','sensitivity','sensitivityValue','analysisResult','bpmValue','beatCount','countPill','timingCalibration','bpmInput','halfBpmBtn','doubleBpmBtn','offsetInput','offsetMinusBtn','offsetPlusBtn','setOffsetBtn','previewOffsetBtn','applyTimingBtn','playBtn','playIcon','stopBtn','backBtn','forwardBtn','currentTime','durationTime','playbackRate','metronome','waveform','canvasShell','emptyWave','timelineHint','zoom','fitBtn','addBeatBtn','undoBtn','redoBtn','beatTableBody','tableEmpty','selectedLabel','inspectorFields','beatTimeInput','beatType','beatStrength','strengthValue','beatNote','deleteBeatBtn','projectName','saveProjectBtn','openProjectBtn','helpBtn','helpModal','helpCloseBtn','helpDoneBtn','exportGameCsvBtn','exportGameJsonBtn','exportBeatCsvBtn','exportBeatJsonBtn','toastRegion','progressModal','progressBar','progressText','dragHelp','chartDifficulty','difficultyHelp','laneCount','snapDivision','noteType','holdLengthWrap','holdLength','laneCanvas','laneEmpty','laneKeys','noteCount','clearNotesBtn','testModeBtn','generateChartBtn','laneModeHelp','judgementPop'
+    'audio','audioFile','projectFile','dropZone','fileCard','fileName','fileMeta','replaceAudioBtn','analyzeBtn','analysisDensity','sensitivity','sensitivityValue','analysisResult','bpmValue','beatCount','countPill','timingCalibration','bpmInput','halfBpmBtn','doubleBpmBtn','offsetInput','offsetMinusBtn','offsetPlusBtn','setOffsetBtn','previewOffsetBtn','applyTimingBtn','playBtn','playIcon','stopBtn','backBtn','forwardBtn','currentTime','durationTime','playbackRate','metronome','waveform','canvasShell','emptyWave','timelineHint','zoom','fitBtn','addBeatBtn','undoBtn','redoBtn','beatTableBody','tableEmpty','selectedLabel','inspectorFields','beatTimeInput','beatType','beatStrength','strengthValue','beatNote','deleteBeatBtn','projectName','saveProjectBtn','openProjectBtn','helpBtn','helpModal','helpCloseBtn','helpDoneBtn','exportGameCsvBtn','exportGameJsonBtn','exportBeatCsvBtn','exportBeatJsonBtn','toastRegion','progressModal','progressBar','progressText','dragHelp','chartDifficulty','difficultyHelp','laneCount','snapDivision','noteType','holdLengthWrap','holdLength','laneCanvas','laneEmpty','laneKeys','noteCount','totalNoteCount','clearNotesBtn','testModeBtn','generateChartBtn','laneModeHelp','judgementPop'
   ].map(id => [id, $(id)]));
 
   const state = {
@@ -17,6 +17,7 @@
     waveform: [],
     beats: [],
     notes: [],
+    charts: null,
     chartDifficulty: 'standard',
     laneCount: 4,
     beatOffset: 0,
@@ -63,6 +64,31 @@
     hard: { label: '困难', grid: 1, approachBeats: 6, minSeconds: 2.35, help: '每一拍 · 较快下落速度' },
     hell: { label: '地狱', grid: 2, approachBeats: 4, minSeconds: 1.6, help: '包含半拍 · 最快下落速度' }
   };
+  const DIFFICULTY_KEYS = Object.keys(DIFFICULTY_PRESETS);
+  state.charts = { standard: state.notes, hard: [], hell: [] };
+
+  function emptyCharts() {
+    return { standard: [], hard: [], hell: [] };
+  }
+
+  function totalNoteCount() {
+    return DIFFICULTY_KEYS.reduce((sum, key) => sum + (state.charts[key]?.length || 0), 0);
+  }
+
+  function setActiveNotes(notes) {
+    state.notes = notes;
+    state.charts[state.chartDifficulty] = notes;
+  }
+
+  function copyCharts(charts = state.charts) {
+    return Object.fromEntries(DIFFICULTY_KEYS.map(key => [key, (charts[key] || []).map(note => ({ ...note }))]));
+  }
+
+  function savedChartNotes(data, key) {
+    const chart = data?.charts?.[key];
+    const list = Array.isArray(chart) ? chart : chart?.notes;
+    return Array.isArray(list) ? list : [];
+  }
 
   function toast(message, type = 'success') {
     const node = document.createElement('div');
@@ -88,7 +114,8 @@
   function cloneEditorState() {
     return {
       beats: state.beats.map(beat => ({ ...beat })),
-      notes: state.notes.map(note => ({ ...note })),
+      charts: copyCharts(),
+      chartDifficulty: state.chartDifficulty,
       laneCount: state.laneCount,
       bpm: state.bpm,
       beatOffset: state.beatOffset
@@ -105,7 +132,15 @@
   function restoreEditorState(saved) {
     const normalized = Array.isArray(saved) ? { beats: saved, notes: [], laneCount: state.laneCount, beatOffset: state.beatOffset } : saved;
     state.beats = (normalized.beats || []).map(beat => ({ ...beat }));
-    state.notes = (normalized.notes || []).map(note => ({ ...note }));
+    const restoredDifficulty = DIFFICULTY_PRESETS[normalized.chartDifficulty] ? normalized.chartDifficulty : state.chartDifficulty;
+    state.charts = emptyCharts();
+    if (normalized.charts) {
+      DIFFICULTY_KEYS.forEach(key => { state.charts[key] = savedChartNotes(normalized, key).map(note => ({ ...note })); });
+    } else {
+      state.charts[restoredDifficulty] = (normalized.notes || []).map(note => ({ ...note }));
+    }
+    state.chartDifficulty = restoredDifficulty;
+    state.notes = state.charts[state.chartDifficulty];
     state.laneCount = Math.max(2, Math.min(6, Number(normalized.laneCount) || 4));
     state.bpm = Number(normalized.bpm) || state.bpm || 0;
     state.beatOffset = Number(normalized.beatOffset) || 0;
@@ -113,6 +148,7 @@
     syncTimingControls();
     if (!state.beats.some(beat => beat.id === state.selectedId)) state.selectedId = null;
     if (!state.notes.some(note => note.id === state.selectedNoteId)) state.selectedNoteId = null;
+    syncDifficultyTabs();
     renderAll();
     markDirty();
   }
@@ -161,7 +197,7 @@
       duration: Number(duration.toFixed(3))
     } : state.pendingAudioReference;
     return {
-      ...(includeVersion ? { format: 'rhythm-chart-studio', version: 3 } : {}),
+      ...(includeVersion ? { format: 'rhythm-chart-studio', version: 4 } : {}),
       name: els.projectName.value.trim() || '未命名谱面',
       audio: audioReference || null,
       bpm: Number(state.bpm.toFixed(2)),
@@ -188,13 +224,16 @@
         strength: beat.strength,
         note: beat.note || ''
       })),
-      notes: state.notes.map((note, index) => ({
-        index: index + 1,
-        time: Number(note.time.toFixed(3)),
-        lane: note.lane,
-        type: note.type,
-        ...(note.type === 'hold' ? { endTime: Number(note.endTime.toFixed(3)) } : {})
-      }))
+      charts: Object.fromEntries(DIFFICULTY_KEYS.map(key => [key, {
+        difficulty: key,
+        notes: state.charts[key].map((note, index) => ({
+          index: index + 1,
+          time: Number(note.time.toFixed(3)),
+          lane: note.lane,
+          type: note.type,
+          ...(note.type === 'hold' ? { endTime: Number(note.endTime.toFixed(3)) } : {})
+        }))
+      }]))
     };
   }
 
@@ -251,7 +290,7 @@
       return;
     }
     const relinkingProject = Boolean(state.pendingAudioReference);
-    if (!relinkingProject && (state.beats.length || state.notes.length) && !confirm('更换音乐会清空当前节拍和轨道音符，继续吗？')) {
+    if (!relinkingProject && (state.beats.length || totalNoteCount()) && !confirm('更换音乐会清空当前节拍和三套难度谱面，继续吗？')) {
       els.audioFile.value = '';
       return;
     }
@@ -275,7 +314,8 @@
       state.projectDuration = state.audioBuffer.duration;
       if (!relinkingProject) {
         state.beats = [];
-        state.notes = [];
+        state.charts = emptyCharts();
+        state.notes = state.charts[state.chartDifficulty];
         state.selectedId = null;
         state.selectedNoteId = null;
         state.history = [];
@@ -575,7 +615,7 @@
   function applyTimingCalibration() {
     if (!state.audioBuffer) return toast('请先关联音乐，再应用节奏校准', 'error');
     const { bpm, offset } = timingInputValues();
-    if (state.notes.length && !confirm('应用新的 BPM / Offset 会重新排列节拍，但已有轨道音符会保留在原时间。应用后建议试听，必要时清空并重新生成基础谱面。继续吗？')) return;
+    if (totalNoteCount() && !confirm('应用新的 BPM / Offset 会重新排列节拍，但三套难度中的已有音符都会保留在原时间。应用后建议试听，必要时重新生成三档谱面。继续吗？')) return;
     ensureOnsetAnalysis();
     snapshot();
     state.bpm = bpm;
@@ -594,7 +634,7 @@
     syncTimingControls();
     renderAll();
     markDirty();
-    toast(`已从 ${formatTime(offset)} 重新排列 ${state.beats.length} 个节拍；已有轨道音符未移动`);
+    toast(`已从 ${formatTime(offset)} 重新排列 ${state.beats.length} 个节拍；三档谱面音符均未移动`);
   }
 
   function adjustTimingInput(input, amount, digits) {
@@ -668,14 +708,16 @@
     els.countPill.textContent = `${state.beats.length} 个`;
     els.tableEmpty.classList.toggle('hidden', state.beats.length > 0);
     els.noteCount.textContent = state.notes.length;
+    if (els.totalNoteCount) els.totalNoteCount.textContent = totalNoteCount();
     els.laneEmpty.classList.toggle('hidden', state.notes.length > 0);
     els.clearNotesBtn.disabled = !state.notes.length;
     els.testModeBtn.disabled = !state.notes.length || !state.audioBuffer;
     els.generateChartBtn.disabled = !state.beats.length || !state.audioBuffer;
-    els.exportGameCsvBtn.disabled = !state.notes.length;
-    els.exportGameJsonBtn.disabled = !state.notes.length;
+    els.exportGameCsvBtn.disabled = !totalNoteCount();
+    els.exportGameJsonBtn.disabled = !totalNoteCount();
     els.exportBeatCsvBtn.disabled = !state.beats.length;
     els.exportBeatJsonBtn.disabled = !state.beats.length;
+    syncDifficultyTabs();
   }
 
   function viewDuration() {
@@ -1170,10 +1212,7 @@
     if (state.noteDragSnapshotTaken) markDirty();
   }
 
-  function generateBaseChart() {
-    if (!state.beats.length) return;
-    if (state.notes.length && !confirm('重新生成会替换已有轨道音符，继续吗？')) return;
-    snapshot();
+  function buildDifficultyChart(difficulty) {
     const lanes = state.laneCount;
     const pattern = [];
     for (let i = 0; i < Math.ceil(lanes / 2); i++) {
@@ -1181,7 +1220,7 @@
       const mirror = lanes - 1 - i;
       if (mirror !== i) pattern.push(mirror);
     }
-    const preset = DIFFICULTY_PRESETS[state.chartDifficulty];
+    const preset = DIFFICULTY_PRESETS[difficulty];
     let chartBeats = state.beats;
     if (preset.grid) {
       const unit = beatDuration() / preset.grid;
@@ -1194,29 +1233,60 @@
         chartBeats.push({ time: Number(time.toFixed(3)), type: barStart ? 'accent' : 'beat', strength: barStart ? 95 : wholeBeat ? 82 : 68 });
       }
     }
-    state.notes = [];
+    const notes = [];
     chartBeats.forEach((beat, index) => {
       const lane = pattern[index % pattern.length];
-      state.notes.push({ id: makeId(), lane, time: beat.time, type: 'tap' });
+      notes.push({ id: makeId(), lane, time: beat.time, type: 'tap' });
       if (beat.type === 'accent' && beat.strength >= 88 && lanes >= 4) {
         const mirror = lanes - 1 - lane;
-        if (mirror !== lane) state.notes.push({ id: makeId(), lane: mirror, time: beat.time, type: 'tap' });
+        if (mirror !== lane) notes.push({ id: makeId(), lane: mirror, time: beat.time, type: 'tap' });
       }
     });
-    state.notes.sort((a, b) => a.time - b.time || a.lane - b.lane);
+    notes.sort((a, b) => a.time - b.time || a.lane - b.lane);
+    return notes;
+  }
+
+  function generateBaseChart() {
+    if (!state.beats.length) return;
+    if (totalNoteCount() && !confirm('重新生成会替换标准、困难、地狱三套已有谱面，继续吗？')) return;
+    snapshot();
+    const charts = emptyCharts();
+    DIFFICULTY_KEYS.forEach(key => { charts[key] = buildDifficultyChart(key); });
+    state.charts = charts;
+    state.notes = state.charts[state.chartDifficulty];
     state.selectedNoteId = null;
     renderAll();
     markDirty();
-    toast(`已生成${preset.label}谱面：${state.laneCount} 轨，共 ${state.notes.length} 个音符`);
+    toast(`三档谱面已生成：标准 ${charts.standard.length}、困难 ${charts.hard.length}、地狱 ${charts.hell.length} 个音符`);
+  }
+
+  function syncDifficultyTabs() {
+    els.chartDifficulty.querySelectorAll('[data-difficulty]').forEach(button => {
+      const selected = button.dataset.difficulty === state.chartDifficulty;
+      button.classList.toggle('active', selected);
+      button.setAttribute('aria-selected', String(selected));
+      const count = state.charts?.[button.dataset.difficulty]?.length || 0;
+      const badge = button.querySelector('b');
+      if (badge) badge.textContent = count;
+    });
   }
 
   function setChartDifficulty(value, shouldSave = true) {
-    state.chartDifficulty = DIFFICULTY_PRESETS[value] ? value : 'standard';
-    els.chartDifficulty.value = state.chartDifficulty;
+    const nextDifficulty = DIFFICULTY_PRESETS[value] ? value : 'standard';
+    if (state.testMode) {
+      state.testMode = false;
+      state.hitNotes.clear();
+      els.testModeBtn.textContent = '▷ 试玩模式';
+      els.laneCanvas.parentElement.classList.remove('test-mode');
+    }
+    state.charts[state.chartDifficulty] = state.notes;
+    state.chartDifficulty = nextDifficulty;
+    state.notes = state.charts[state.chartDifficulty];
+    state.selectedNoteId = null;
     const preset = DIFFICULTY_PRESETS[state.chartDifficulty];
-    els.generateChartBtn.textContent = `✦ 生成${preset.label}谱面`;
     els.difficultyHelp.textContent = `${preset.label}：${preset.help}`;
-    renderLaneEditor();
+    syncDifficultyTabs();
+    renderAll();
     if (shouldSave) markDirty();
   }
 
@@ -1437,14 +1507,24 @@
   function saveProject() {
     downloadFile(`${els.projectName.value || '未命名谱面'}.rhythm.json`, JSON.stringify(projectData(), null, 2), 'application/json');
     state.dirty = false;
-    toast('完整工程已保存：包含音乐引用、编辑设置、节拍和轨道谱面');
+    toast('完整工程已保存：包含音乐引用、编辑设置、节拍和三套难度谱面');
+  }
+
+  function importChartNotes(list, laneCount) {
+    return (Array.isArray(list) ? list : []).map(note => ({
+      id: makeId(),
+      time: Number(note.time) || 0,
+      lane: Math.max(0, Math.min(laneCount - 1, Number(note.lane) || 0)),
+      type: note.type === 'hold' ? 'hold' : 'tap',
+      ...(note.type === 'hold' ? { endTime: Math.max(Number(note.time) || 0, Number(note.endTime) || Number(note.time) || 0) } : {})
+    })).sort((a, b) => a.time - b.time || a.lane - b.lane);
   }
 
   async function openProject(file) {
     try {
       const data = JSON.parse(await file.text());
       if (!Array.isArray(data.beats)) throw new Error('missing beats');
-      if ((state.beats.length || state.notes.length) && !confirm('打开工程会替换当前节拍和轨道音符，继续吗？')) return;
+      if ((state.beats.length || totalNoteCount()) && !confirm('打开工程会替换当前节拍和三套难度谱面，继续吗？')) return;
       snapshot();
       state.beats = data.beats.map(beat => ({
         id: makeId(), time: Number(beat.time) || 0,
@@ -1455,16 +1535,17 @@
       state.beatOffset = Number(data.beatOffset) || 0;
       state.projectDuration = Number(data.duration || data.audio?.duration) || 0;
       state.laneCount = Math.max(2, Math.min(6, Number(data.laneCount) || 4));
-      state.notes = Array.isArray(data.notes) ? data.notes.map(note => ({
-        id: makeId(),
-        time: Number(note.time) || 0,
-        lane: Math.max(0, Math.min(state.laneCount - 1, Number(note.lane) || 0)),
-        type: note.type === 'hold' ? 'hold' : 'tap',
-        ...(note.type === 'hold' ? { endTime: Math.max(Number(note.time) || 0, Number(note.endTime) || Number(note.time) || 0) } : {})
-      })).sort((a, b) => a.time - b.time || a.lane - b.lane) : [];
+      const settings = data.settings || {};
+      state.chartDifficulty = DIFFICULTY_PRESETS[settings.chartDifficulty] ? settings.chartDifficulty : 'standard';
+      state.charts = emptyCharts();
+      if (data.charts) {
+        DIFFICULTY_KEYS.forEach(key => { state.charts[key] = importChartNotes(savedChartNotes(data, key), state.laneCount); });
+      } else {
+        state.charts[state.chartDifficulty] = importChartNotes(data.notes, state.laneCount);
+      }
+      state.notes = state.charts[state.chartDifficulty];
       els.laneCount.value = String(state.laneCount);
       if ([0,1,2,4].includes(Number(data.snapDivision))) els.snapDivision.value = String(data.snapDivision);
-      const settings = data.settings || {};
       setChartDifficulty(settings.chartDifficulty, false);
       if (['concise','standard','detailed'].includes(settings.analysisDensity)) els.analysisDensity.value = settings.analysisDensity;
       if (Number.isFinite(Number(settings.sensitivity))) els.sensitivity.value = String(Math.max(0, Math.min(100, Number(settings.sensitivity))));
@@ -1489,7 +1570,7 @@
       renderAll();
       markDirty();
       const audioHint = currentAudioMatches ? '音乐已自动匹配。' : data.audio?.name ? `请重新关联音乐“${data.audio.name}”。` : '该工程没有音乐引用。';
-      toast(`工程已打开：${state.beats.length} 个节拍、${state.notes.length} 个轨道音符。${audioHint}`);
+      toast(`工程已打开：${state.beats.length} 个节拍、三档共 ${totalNoteCount()} 个音符。${audioHint}`);
     } catch (error) {
       toast('这个文件不是有效的节拍工程', 'error');
     }
@@ -1499,11 +1580,13 @@
     return '\ufeff' + rows.map(row => row.map(value => `"${String(value ?? '').replace(/"/g, '""')}"`).join(',')).join('\r\n');
   }
 
-  const GAME_COLUMNS = ['index','time_ms','time_display','lane','type','end_time_ms','duration_ms'];
+  const GAME_COLUMNS = ['difficulty','index','time_ms','time_display','lane','type','end_time_ms','duration_ms'];
   const BEAT_COLUMNS = ['index','time_ms','time_seconds','time_display','type','strength','note'];
 
-  function gameExportRows() {
-    return state.notes.map((note, index) => ({
+  function gameExportRows(difficulty) {
+    const notes = state.charts[difficulty] || [];
+    return notes.map((note, index) => ({
+      difficulty,
       index: index + 1,
       time_ms: Math.round(note.time * 1000),
       time_display: formatTime(note.time),
@@ -1531,20 +1614,26 @@
   }
 
   function exportGameCsv() {
-    downloadFile(`${els.projectName.value || '谱面'}.game.csv`, objectsToCsv(GAME_COLUMNS, gameExportRows()), 'text/csv;charset=utf-8');
-    toast('游戏谱面 CSV 已导出');
+    const rows = DIFFICULTY_KEYS.flatMap(key => gameExportRows(key));
+    downloadFile(`${els.projectName.value || '谱面'}.game.csv`, objectsToCsv(GAME_COLUMNS, rows), 'text/csv;charset=utf-8');
+    toast('游戏谱面 CSV 已导出：包含标准、困难、地狱三档');
   }
 
   function exportGameJson() {
     const project = projectData();
     const data = {
-      format: 'rhythm-game-chart', version: 3, name: project.name,
+      format: 'rhythm-game-chart', version: 4, name: project.name,
       audio: project.audio ? { file: project.audio.reference || project.audio.name, duration_ms: Math.round(project.duration * 1000) } : null,
       lane_count: project.laneCount, bpm: project.bpm, beat_offset_ms: Math.round(project.beatOffset * 1000),
-      time_unit: 'milliseconds', columns: GAME_COLUMNS, notes: gameExportRows()
+      time_unit: 'milliseconds', columns: GAME_COLUMNS,
+      charts: Object.fromEntries(DIFFICULTY_KEYS.map(key => [key, {
+        difficulty: key,
+        note_count: state.charts[key].length,
+        notes: gameExportRows(key)
+      }]))
     };
     downloadFile(`${els.projectName.value || '谱面'}.game.json`, JSON.stringify(data, null, 2), 'application/json');
-    toast('游戏 JSON 已导出：时间为毫秒，轨道从 1 开始');
+    toast('游戏 JSON 已导出：包含三档谱面，时间为毫秒，轨道从 1 开始');
   }
 
   function exportBeatCsv() {
@@ -1635,9 +1724,9 @@
         annotations: { readOnlyHint: false, consequentialHint: false, untrustedContentHint: false },
         execute: async () => {
           if (!state.audioBuffer || !state.beats.length) return 'Analyze an audio file before generating a lane chart.';
-          if (state.notes.length) return 'The chart already has game notes. Clear them before generating a replacement.';
+          if (totalNoteCount()) return 'The project already has difficulty charts. Clear them before generating replacements.';
           generateBaseChart();
-          return `Generated ${state.notes.length} notes across ${state.laneCount} lanes.`;
+          return `Generated standard, hard, and hell charts with ${totalNoteCount()} total notes across ${state.laneCount} lanes.`;
         }
       })
     ]);
@@ -1758,24 +1847,27 @@
   els.projectName.addEventListener('input', markDirty);
   els.laneCount.addEventListener('change', () => {
     const next = Number(els.laneCount.value);
-    const outOfRange = state.notes.filter(note => note.lane >= next).length;
-    if (outOfRange && !confirm(`切换到 ${next} 轨会把 ${outOfRange} 个超出范围的音符移动到最后一轨，继续吗？`)) {
+    const outOfRange = DIFFICULTY_KEYS.reduce((sum, key) => sum + state.charts[key].filter(note => note.lane >= next).length, 0);
+    if (outOfRange && !confirm(`切换到 ${next} 轨会把三套谱面中 ${outOfRange} 个超出范围的音符移动到最后一轨，继续吗？`)) {
       els.laneCount.value = String(state.laneCount);
       return;
     }
     snapshot();
     state.laneCount = next;
-    state.notes.forEach(note => { note.lane = Math.min(note.lane, next - 1); });
+    DIFFICULTY_KEYS.forEach(key => state.charts[key].forEach(note => { note.lane = Math.min(note.lane, next - 1); }));
     renderAll();
     markDirty();
   });
   els.snapDivision.addEventListener('change', () => { renderLaneEditor(); markDirty(); });
-  els.chartDifficulty.addEventListener('change', () => setChartDifficulty(els.chartDifficulty.value));
+  els.chartDifficulty.addEventListener('click', event => {
+    const button = event.target.closest('[data-difficulty]');
+    if (button) setChartDifficulty(button.dataset.difficulty);
+  });
   els.noteType.addEventListener('change', () => els.holdLengthWrap.classList.toggle('hidden', els.noteType.value !== 'hold'));
   els.generateChartBtn.addEventListener('click', generateBaseChart);
   els.clearNotesBtn.addEventListener('click', () => {
-    if (!state.notes.length || !confirm(`确定清空全部 ${state.notes.length} 个轨道音符吗？节拍分析结果会保留。`)) return;
-    snapshot(); state.notes = []; state.selectedNoteId = null; renderAll(); markDirty();
+    if (!state.notes.length || !confirm(`确定清空“${DIFFICULTY_PRESETS[state.chartDifficulty].label}”谱面的 ${state.notes.length} 个音符吗？另外两档不会受影响。`)) return;
+    snapshot(); setActiveNotes([]); state.selectedNoteId = null; renderAll(); markDirty();
   });
   els.testModeBtn.addEventListener('click', toggleTestMode);
   els.laneCanvas.addEventListener('pointerdown', handleLanePointer);
@@ -1826,11 +1918,11 @@
   });
 
   window.addEventListener('resize', () => { cancelAnimationFrame(resizeFrame); resizeFrame = requestAnimationFrame(resizeCanvas); });
-  window.addEventListener('beforeunload', event => { if (state.dirty && (state.beats.length || state.notes.length)) { event.preventDefault(); event.returnValue = ''; } });
+  window.addEventListener('beforeunload', event => { if (state.dirty && (state.beats.length || totalNoteCount())) { event.preventDefault(); event.returnValue = ''; } });
 
   try {
     const saved = JSON.parse(localStorage.getItem('rhythm-studio-autosave') || 'null');
-    if (saved && (saved.beats?.length || saved.notes?.length)) {
+    if (saved && (saved.beats?.length || saved.notes?.length || saved.charts)) {
       els.projectName.value = saved.name || '未命名谱面';
       state.beats = saved.beats.map(beat => ({ ...beat, id: makeId() }));
       state.bpm = Number(saved.bpm) || 0;
@@ -1838,10 +1930,17 @@
       state.projectDuration = Number(saved.duration || saved.audio?.duration) || 0;
       state.pendingAudioReference = saved.audio || null;
       state.laneCount = Math.max(2, Math.min(6, Number(saved.laneCount) || 4));
-      state.notes = Array.isArray(saved.notes) ? saved.notes.map(note => ({ ...note, id: makeId() })) : [];
+      const settings = saved.settings || {};
+      state.chartDifficulty = DIFFICULTY_PRESETS[settings.chartDifficulty] ? settings.chartDifficulty : 'standard';
+      state.charts = emptyCharts();
+      if (saved.charts) {
+        DIFFICULTY_KEYS.forEach(key => { state.charts[key] = importChartNotes(savedChartNotes(saved, key), state.laneCount); });
+      } else {
+        state.charts[state.chartDifficulty] = importChartNotes(saved.notes, state.laneCount);
+      }
+      state.notes = state.charts[state.chartDifficulty];
       els.laneCount.value = String(state.laneCount);
       if ([0,1,2,4].includes(Number(saved.snapDivision))) els.snapDivision.value = String(saved.snapDivision);
-      const settings = saved.settings || {};
       setChartDifficulty(settings.chartDifficulty, false);
       if (['concise','standard','detailed'].includes(settings.analysisDensity)) els.analysisDensity.value = settings.analysisDensity;
       if (Number.isFinite(Number(settings.sensitivity))) els.sensitivity.value = String(Math.max(0, Math.min(100, Number(settings.sensitivity))));
@@ -1854,7 +1953,7 @@
       els.bpmValue.textContent = state.bpm ? state.bpm.toFixed(1) : '—';
       els.analysisResult.classList.remove('hidden');
       if (saved.audio?.name) els.timelineHint.textContent = `请重新关联音乐“${saved.audio.name}”`;
-      toast(`已恢复上次未导出的 ${state.beats.length} 个节拍和 ${state.notes.length} 个音符，请重新关联音乐`);
+      toast(`已恢复上次未导出的 ${state.beats.length} 个节拍和三档共 ${totalNoteCount()} 个音符，请重新关联音乐`);
     }
   } catch (_) { /* ignore corrupt autosave */ }
 

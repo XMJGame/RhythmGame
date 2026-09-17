@@ -120,7 +120,11 @@
               <div class="lane-toolbar">
                 <div><h2>轨道谱面</h2><p>编辑时横向排布并与波形时间轴同步；试玩时自动切换为下落视图</p></div>
                 <div class="lane-controls">
-                  <label>难度<select id="chartDifficulty" aria-label="生成谱面难度"><option value="standard" selected>标准</option><option value="hard">困难</option><option value="hell">地狱</option></select></label>
+                  <div class="difficulty-tabs" id="chartDifficulty" role="tablist" aria-label="切换当前编辑难度">
+                    <button type="button" class="active" role="tab" aria-selected="true" data-difficulty="standard">标准 <b>0</b></button>
+                    <button type="button" role="tab" aria-selected="false" data-difficulty="hard">困难 <b>0</b></button>
+                    <button type="button" role="tab" aria-selected="false" data-difficulty="hell">地狱 <b>0</b></button>
+                  </div>
                   <label>轨道<select id="laneCount"><option value="2">2 轨</option><option value="3">3 轨</option><option value="4" selected>4 轨</option><option value="5">5 轨</option><option value="6">6 轨</option></select></label>
                   <label title="在轨道上点击放置音符时，自动对齐到最近的节拍网格">节拍对齐<select id="snapDivision" aria-label="音符节拍对齐"><option value="1">对齐每拍</option><option value="2" selected>对齐半拍</option><option value="4">对齐 1/4 拍</option><option value="0">自由放置</option></select></label>
                   <label>音符<select id="noteType"><option value="tap">点击</option><option value="hold">长按</option></select></label>
@@ -129,16 +133,16 @@
               </div>
               <div class="lane-stage-wrap">
                 <canvas id="laneCanvas" aria-label="横向游戏音符轨道编辑区，顶部时间尺可定位播放位置"></canvas>
-                <div class="lane-empty" id="laneEmpty"><strong>还没有游戏音符</strong><span>先分析节拍，再选择难度并生成谱面</span></div>
+                <div class="lane-empty" id="laneEmpty"><strong>当前难度还没有音符</strong><span>点击“生成三档谱面”，或直接在空白轨道添加</span></div>
                 <div class="judgement-pop hidden" id="judgementPop">PERFECT</div>
               </div>
               <div class="lane-footer">
                 <div class="lane-keys" id="laneKeys" aria-label="轨道按键"></div>
                 <div class="lane-actions">
-                  <span class="note-counter"><b id="noteCount">0</b> 个音符</span>
-                  <button class="btn ghost small" id="clearNotesBtn" disabled>清空音符</button>
+                  <span class="note-counter">当前 <b id="noteCount">0</b> · 三档共 <b id="totalNoteCount">0</b></span>
+                  <button class="btn ghost small" id="clearNotesBtn" disabled>清空当前难度</button>
                   <button class="btn ghost small" id="testModeBtn" disabled>▷ 试玩模式</button>
-                  <button class="btn primary small" id="generateChartBtn" disabled>✦ 生成标准谱面</button>
+                  <button class="btn primary small" id="generateChartBtn" disabled>✦ 生成三档谱面</button>
                 </div>
               </div>
               <div class="lane-help"><span id="difficultyHelp">标准：主要节拍 · 正常下落速度</span><span>空白处左键添加 · 拖动音符移动 · 右键删除</span><span>顶部时间尺：拖动定位</span><span>空格：播放/暂停</span><span id="laneModeHelp">当前键位：D F J K</span></div>
@@ -171,7 +175,7 @@
         </section>
 
         <section class="export-bar panel">
-          <div class="export-intro"><span class="export-icon">⇩</span><div><strong>分类导出</strong><small>游戏谱面给游戏读取，节拍列表用于分析和复用</small></div></div>
+          <div class="export-intro"><span class="export-icon">⇩</span><div><strong>分类导出</strong><small>游戏谱面一次包含标准、困难、地狱三档；节拍列表用于分析和复用</small></div></div>
           <div class="export-groups">
             <div class="export-group"><span>游戏谱面</span><div><button class="btn ghost" id="exportGameCsvBtn" disabled>CSV</button><button class="btn primary" id="exportGameJsonBtn" disabled>JSON</button></div></div>
             <div class="export-group"><span>节拍列表</span><div><button class="btn ghost" id="exportBeatCsvBtn" disabled>CSV</button><button class="btn ghost" id="exportBeatJsonBtn" disabled>JSON</button></div></div>
@@ -199,7 +203,7 @@
               <li><b>1</b><div><strong>加载音乐</strong><span>选择本机 MP3、WAV、OGG 或 M4A。</span></div></li>
               <li><b>2</b><div><strong>自动找节拍</strong><span>先选“精简”，再点分析。</span></div></li>
               <li><b>3</b><div><strong>打开提示音试听</strong><span>鼓点不齐时，调整 BPM 或第一拍位置。</span></div></li>
-              <li><b>4</b><div><strong>选择难度并生成</strong><span>先用“标准”，生成后点击试玩。</span></div></li>
+              <li><b>4</b><div><strong>一次生成三档谱面</strong><span>点击“生成三档谱面”，再用页签切换检查和编辑。</span></div></li>
               <li><b>5</b><div><strong>保存完整工程</strong><span>要给游戏使用时，再导出游戏谱面。</span></div></li>
             </ol>
           </section>
@@ -209,13 +213,13 @@
             <div class="concept-grid">
               <div class="concept-card"><strong><i class="dot beat-dot"></i>BPM</strong><p>每分钟有多少拍，决定节拍之间的距离。数值不对时，越往后偏得越明显。</p></div>
               <div class="concept-card"><strong><i class="dot offset-dot"></i>第一拍位置 Offset</strong><p>正式节奏从音乐第几秒开始。数值不对时，整首歌会一起提前或延后。</p></div>
-              <div class="concept-card"><strong><i class="dot note-dot"></i>节拍与谱面</strong><p>“节拍参考密度”只决定参考线保留多少；“谱面难度”才决定生成多少游戏音符和下落速度。</p></div>
+              <div class="concept-card"><strong><i class="dot note-dot"></i>节拍与谱面</strong><p>“节拍参考密度”决定参考线保留多少；生成谱面时会以这些节拍为基础，同时建立标准、困难、地狱三套可独立编辑的音符。</p></div>
             </div>
             <div class="help-callout"><strong>怎么判断结果准不准？</strong><p>打开“节拍提示音”从头听：如果从头到尾都固定早一点或晚一点，调 Offset；如果开头准、后面越来越偏，调 BPM。自动分析只是起点，复杂鼓点或真人演奏仍需要试听。</p></div>
           </section>
 
           <section class="help-section help-chapter">
-            <div class="chapter-title"><b>03</b><div><h3>生成谱面与试玩：难度不是简单加速</h3><p>选择难度后点击“生成…谱面”；只切换难度不会修改现有音符。</p></div></div>
+            <div class="chapter-title"><b>03</b><div><h3>生成谱面与试玩：三档独立保存</h3><p>点击一次“生成三档谱面”，随后用页签直接切换；每一档的增删和移动互不覆盖。</p></div></div>
             <div class="difficulty-grid">
               <article><span>推荐入门</span><h4>标准</h4><p>沿用分析出的主要节拍，音符较少，正常下落速度。</p></article>
               <article><span>节奏更满</span><h4>困难</h4><p>按每一拍生成，重拍可能出现双押，下落速度更快。</p></article>
@@ -223,7 +227,7 @@
             </div>
             <p class="help-note strong-note">当前三档使用固定下落速度，不会在歌曲中途突然加速。中途变速属于特殊演出效果（SV），以后有明确玩法需求再单独加入更合适。</p>
             <div class="help-columns compact-columns">
-              <div><h4>编辑与试玩</h4><p class="help-note">编辑区按横向时间排列：空白处左键添加音符，拖动已有音符可同时调整时间和轨道，右键删除；“节拍对齐”会让新增和移动后的音符贴到最近网格。顶部时间尺与波形时间轴同步，可拖动定位播放位置。点击“试玩模式”后会切换成下落式画面，再用轨道下方显示的按键击打；空格仍然负责播放 / 暂停。</p></div>
+              <div><h4>切换、编辑与试玩</h4><p class="help-note">标准、困难、地狱页签各自保存一套音符，切换页签不会重新生成，也不会覆盖刚才的编辑。编辑区按横向时间排列：空白处左键添加，拖动已有音符调整时间和轨道，右键删除；“节拍对齐”会让新增和移动后的音符贴到最近网格。顶部时间尺可拖动定位。点击“试玩模式”后切换成下落式画面，空格播放 / 暂停。</p></div>
               <div><h4>常用快捷键</h4><dl class="shortcut-list compact"><div><dt><kbd>空格</kbd></dt><dd>播放 / 暂停</dd></div><div><dt><kbd>T</kbd></dt><dd>添加节拍</dd></div><div><dt><kbd>Ctrl</kbd> + <kbd>Z</kbd></dt><dd>撤销</dd></div><div><dt><kbd>右键</kbd></dt><dd>删除音符</dd></div></dl></div>
             </div>
           </section>
@@ -231,10 +235,10 @@
           <section class="help-section help-chapter" aria-labelledby="helpExportTitle">
             <div class="chapter-title"><b>04</b><div><h3 id="helpExportTitle">保存与导出：根据下一步用途选择</h3><p>继续制作选“保存工程”；接入游戏选“游戏谱面”。</p></div></div>
             <div class="export-help-grid">
-              <article class="export-help-card project"><span>继续编辑</span><h4>保存完整工程 · .rhythm.json</h4><p>保存节拍、轨道音符、BPM 和编辑设置。以后用“打开工程文件”继续制作。</p><small>浏览器不会保存音乐文件本身或电脑中的绝对路径；重新打开工程时，需要再次选择原来的音乐进行关联。</small></article>
-              <article class="export-help-card"><span>给游戏读取</span><h4>游戏谱面 · JSON / CSV</h4><p>导出玩家真正要按的音符。JSON 带有完整结构和元数据，通常更适合程序；CSV 与 JSON 的音符行一致，适合用表格查看和修改。</p></article>
+              <article class="export-help-card project"><span>继续编辑</span><h4>保存完整工程 · .rhythm.json</h4><p>保存节拍、三套难度谱面、BPM 和编辑设置。以后打开工程时，三档的独立编辑内容都会恢复。</p><small>浏览器不会保存音乐文件本身或电脑中的绝对路径；重新打开工程时，需要再次选择原来的音乐进行关联。</small></article>
+              <article class="export-help-card"><span>给游戏读取</span><h4>游戏谱面 · JSON / CSV</h4><p>一次导出标准、困难、地狱三档。JSON 按 <code>charts.standard / hard / hell</code> 分组；CSV 用 <code>difficulty</code> 列区分，其他音符字段与 JSON 一致。</p></article>
               <article class="export-help-card"><span>保留分析结果</span><h4>节拍列表 · JSON / CSV</h4><p>只导出音乐的节拍时间、类型、强度和备注，不包含轨道音符。适合复用节拍、检查分析结果或交给其他制谱流程。</p></article>
-              <article class="export-help-card fields"><span>字段速查</span><h4>数据里的常见名称</h4><p><code>time_ms</code>：毫秒时间；<code>lane</code>：从 1 开始的轨道号（第 1 轨就是 1）；<code>tap</code>：点击；<code>hold</code>：长按；<code>end_time_ms</code>：长按结束时间。</p></article>
+              <article class="export-help-card fields"><span>字段速查</span><h4>数据里的常见名称</h4><p><code>difficulty</code>：standard / hard / hell；<code>time_ms</code>：毫秒时间；<code>lane</code>：从 1 开始的轨道号；<code>tap</code>：点击；<code>hold</code>：长按；<code>end_time_ms</code>：长按结束时间。</p></article>
             </div>
           </section>
         </div>
