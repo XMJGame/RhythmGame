@@ -35,4 +35,12 @@ JSON 中的 `lane` 从 1 开始，运行时会转换为 Unity 内部从 0 开始
 
 曲线横轴统一是歌曲进度 `0 → 1`。标准模式保持 JSON 原谱；困难和地狱通过曲线逐段增加密度、速度和判定压力。
 
+## 工程结构
+
+- 相机、AudioListener、灯光、轨道、判定线、生成点和判定点都直接保存在 `Main.unity`，可以在 Scene 视图调整。
+- `Assets/Prefabs/Note.prefab` 是唯一的音符 Prefab。
+- 游戏开始时预热 32 个音符对象；游玩过程中从对象池取出和归还，不重复 Instantiate/Destroy。
+- 音乐由 `AudioSettings.dspTime` 和 `AudioSource.PlayScheduled` 统一计时，音符生成、位置、按键判定和 MISS 使用同一个 DSP 歌曲时间。
+- `RhythmGameController.inputOffsetMs` 用于以后校准键盘、音频设备造成的输入延迟。
+
 如果替换 `game.json` 或音乐，保持文件名不变后回到 Unity 等待重新导入即可。若要改名，请同时在场景中的 `RhythmGameController` 重新关联资源。

@@ -12,16 +12,24 @@ namespace RhythmCurveDemo
         public TextAsset chartJson;
         public AudioClip music;
         public DifficultyProfile[] difficulties;
-        public Material runtimeMaterialTemplate;
 
-        [Header("Track")]
-        public float hitZ = -2.2f;
-        public float spawnZ = 13f;
-        public float laneSpacing = 2.7f;
+        [Header("Scene References")]
+        public AudioSource audioSource;
+        public NoteView notePrefab;
+        public Transform noteContainer;
+        public Transform[] laneSpawnPoints;
+        public Transform[] laneHitPoints;
+
+        [Header("DSP Timing")]
+        [Tooltip("正值表示把玩家输入按更晚的音乐时间判定，用于设备延迟校准。")]
+        public float inputOffsetMs;
+        [Range(.05f, .5f)] public float scheduleLeadSeconds = .15f;
+
+        [Header("Pool")]
+        [Min(8)] public int initialPoolSize = 32;
 
         private readonly List<RuntimeNote> runtimeNotes = new List<RuntimeNote>();
-        private readonly List<GameObject> worldObjects = new List<GameObject>();
-        private AudioSource audioSource;
+        private readonly Queue<NoteView> notePool = new Queue<NoteView>();
         private RhythmChart chart;
         private int difficultyIndex;
         private int nextSpawnIndex;
@@ -31,8 +39,12 @@ namespace RhythmCurveDemo
         private int perfects;
         private int goods;
         private int misses;
+        private int createdNoteViews;
         private bool playing;
         private bool paused;
+        private double songStartDspTime;
+        private double pauseStartedDspTime;
+        private double accumulatedPauseTime;
         private string judgement = "";
         private float judgementUntil;
         private GUIStyle titleStyle;
@@ -47,17 +59,17 @@ namespace RhythmCurveDemo
             public int lane;
             public bool spawned;
             public bool resolved;
-            public GameObject view;
+            public NoteView view;
         }
 
         private void Awake()
         {
             Application.targetFrameRate = 120;
-            audioSource = gameObject.AddComponent<AudioSource>();
+            ValidateSceneReferences();
             audioSource.playOnAwake = false;
             audioSource.clip = music;
             ParseChart();
-            BuildWorld();
+            WarmPool();
         }
 
         private void Start()
@@ -71,14 +83,23 @@ namespace RhythmCurveDemo
             }
         }
 
+        private void ValidateSceneReferences()
+        {
+            if (audioSource == null || notePrefab == null || noteContainer == null ||
+                laneSpawnPoints == null || laneHitPoints == null || laneSpawnPoints.Length < 2 || laneHitPoints.Length < 2)
+                throw new InvalidOperationException("Main scene references are incomplete. Run Rhythm Game > Rebuild Demo Scene.");
+        }
+
         private IEnumerator RunSmokeTest()
         {
             yield return new WaitForSecondsRealtime(4f);
             bool passed = chart != null && chart.notes != null && chart.notes.Length > 0 &&
-                          runtimeNotes.Count >= chart.notes.Length && audioSource.clip != null;
+                          runtimeNotes.Count >= chart.notes.Length && audioSource.clip != null &&
+                          createdNoteViews == initialPoolSize;
             string message = $"RHYTHM_SMOKE_{(passed ? "PASS" : "FAIL")} " +
                              $"sourceNotes={chart?.notes?.Length ?? 0} generatedNotes={runtimeNotes.Count} " +
-                             $"difficulty={difficulties[difficultyIndex].displayName} audioTime={audioSource.time:0.000}";
+                             $"difficulty={difficulties[difficultyIndex].displayName} " +
+                             $"dspSongTime={GetSongTime():0.000} pooledViews={createdNoteViews}";
             if (passed) Debug.Log(message); else Debug.LogError(message);
             Application.Quit(passed ? 0 : 1);
         }
@@ -99,60 +120,31 @@ namespace RhythmCurveDemo
                 Debug.LogError("Could not parse rhythm chart.");
         }
 
-        private void BuildWorld()
+        private void WarmPool()
         {
-            Camera camera = Camera.main;
-            if (camera == null)
-            {
-                GameObject cameraObject = new GameObject("Main Camera");
-                cameraObject.tag = "MainCamera";
-                camera = cameraObject.AddComponent<Camera>();
-            }
-            camera.transform.position = new Vector3(0, 8.2f, -10.8f);
-            camera.transform.rotation = Quaternion.Euler(27f, 0, 0);
-            camera.fieldOfView = 54f;
-            camera.clearFlags = CameraClearFlags.SolidColor;
-            camera.backgroundColor = new Color(.025f, .035f, .06f);
-            if (camera.GetComponent<AudioListener>() == null)
-                camera.gameObject.AddComponent<AudioListener>();
-
-            if (FindObjectOfType<Light>() == null)
-            {
-                GameObject lightObject = new GameObject("Key Light");
-                Light light = lightObject.AddComponent<Light>();
-                light.type = LightType.Directional;
-                light.intensity = 1.15f;
-                light.color = new Color(.78f, .88f, 1f);
-                lightObject.transform.rotation = Quaternion.Euler(48f, -24f, 0);
-            }
-
-            CreateBlock("Track Base", new Vector3(0, -.35f, 5.3f), new Vector3(6.4f, .3f, 16.7f), new Color(.045f, .065f, .1f));
-            for (int lane = 0; lane < 2; lane++)
-            {
-                float x = LaneX(lane);
-                CreateBlock("Lane " + (lane + 1), new Vector3(x, 0, 5.3f), new Vector3(2.45f, .12f, 16.4f), lane == 0 ? new Color(.06f, .2f, .28f) : new Color(.2f, .08f, .27f));
-            }
-            CreateBlock("Lane Divider", new Vector3(0, .08f, 5.3f), new Vector3(.08f, .08f, 16.4f), new Color(.35f, .48f, .62f));
-            CreateBlock("Hit Line", new Vector3(0, .3f, hitZ), new Vector3(5.9f, .2f, .22f), new Color(1f, .76f, .12f));
+            for (int i = 0; i < initialPoolSize; i++) notePool.Enqueue(CreatePooledNote());
         }
 
-        private GameObject CreateBlock(string name, Vector3 position, Vector3 scale, Color color)
+        private NoteView CreatePooledNote()
         {
-            GameObject block = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            block.name = name;
-            block.transform.position = position;
-            block.transform.localScale = scale;
-            Renderer renderer = block.GetComponent<Renderer>();
-            Shader fallbackShader = Shader.Find("Standard");
-            renderer.material = runtimeMaterialTemplate != null
-                ? new Material(runtimeMaterialTemplate)
-                : new Material(fallbackShader);
-            renderer.material.color = color;
-            worldObjects.Add(block);
-            return block;
+            NoteView view = Instantiate(notePrefab, noteContainer);
+            view.name = $"Pooled Note {++createdNoteViews:00}";
+            view.Hide();
+            return view;
         }
 
-        private float LaneX(int lane) => (lane - .5f) * laneSpacing;
+        private NoteView AcquireNote()
+        {
+            return notePool.Count > 0 ? notePool.Dequeue() : CreatePooledNote();
+        }
+
+        private void ReleaseNote(NoteView view)
+        {
+            if (view == null || !view.gameObject.activeSelf) return;
+            view.Hide();
+            view.transform.SetParent(noteContainer, false);
+            notePool.Enqueue(view);
+        }
 
         private void BuildDifficultyChart()
         {
@@ -160,15 +152,16 @@ namespace RhythmCurveDemo
             DifficultyProfile profile = difficulties[difficultyIndex];
             ChartNote[] source = chart.notes.OrderBy(note => note.time_ms).ToArray();
             float duration = Mathf.Max(.001f, chart.audio != null ? chart.audio.duration_ms / 1000f : music.length);
+            int laneCount = Mathf.Min(laneSpawnPoints.Length, laneHitPoints.Length);
 
             for (int i = 0; i < source.Length; i++)
             {
                 float time = source[i].time_ms / 1000f;
-                int lane = Mathf.Clamp(source[i].lane - 1, 0, 1);
+                int lane = Mathf.Clamp(source[i].lane - 1, 0, laneCount - 1);
                 AddRuntimeNote(time, lane);
 
                 float progress = time / duration;
-                if (Hash01(i, 11) < profile.EvaluateChordChance(progress))
+                if (laneCount == 2 && Hash01(i, 11) < profile.EvaluateChordChance(progress))
                     AddRuntimeNote(time, 1 - lane);
 
                 if (i >= source.Length - 1) continue;
@@ -176,7 +169,7 @@ namespace RhythmCurveDemo
                 float gap = nextTime - time;
                 if (gap < .22f || gap > 1.05f) continue;
                 if (Hash01(i, 37) < profile.EvaluateExtraChance(progress))
-                    AddRuntimeNote(time + gap * .5f, 1 - lane);
+                    AddRuntimeNote(time + gap * .5f, laneCount == 2 ? 1 - lane : (lane + 1) % laneCount);
             }
 
             runtimeNotes.Sort((a, b) => a.time != b.time ? a.time.CompareTo(b.time) : a.lane.CompareTo(b.lane));
@@ -211,15 +204,45 @@ namespace RhythmCurveDemo
             judgementUntil = Time.unscaledTime + .8f;
             paused = false;
             playing = true;
+            accumulatedPauseTime = 0;
+            pauseStartedDspTime = 0;
             audioSource.Stop();
-            audioSource.time = 0;
-            audioSource.Play();
+            audioSource.clip = music;
+            audioSource.timeSamples = 0;
+            songStartDspTime = AudioSettings.dspTime + scheduleLeadSeconds;
+            audioSource.PlayScheduled(songStartDspTime);
+        }
+
+        private double GetSongTime()
+        {
+            if (!playing) return 0;
+            double clock = paused ? pauseStartedDspTime : AudioSettings.dspTime;
+            return Math.Max(0, clock - songStartDspTime - accumulatedPauseTime);
+        }
+
+        private void TogglePause()
+        {
+            if (!paused)
+            {
+                pauseStartedDspTime = AudioSettings.dspTime;
+                paused = true;
+                audioSource.Pause();
+            }
+            else
+            {
+                accumulatedPauseTime += AudioSettings.dspTime - pauseStartedDspTime;
+                paused = false;
+                audioSource.UnPause();
+            }
         }
 
         private void ClearNotes()
         {
             foreach (RuntimeNote note in runtimeNotes)
-                if (note.view != null) Destroy(note.view);
+            {
+                ReleaseNote(note.view);
+                note.view = null;
+            }
             runtimeNotes.Clear();
         }
 
@@ -242,14 +265,10 @@ namespace RhythmCurveDemo
                 return;
             }
             if (Input.GetKeyDown(KeyCode.R)) { BeginGame(); return; }
-            if (Input.GetKeyDown(KeyCode.Space))
-            {
-                paused = !paused;
-                if (paused) audioSource.Pause(); else audioSource.UnPause();
-            }
+            if (Input.GetKeyDown(KeyCode.Space)) TogglePause();
             if (paused) return;
 
-            float songTime = audioSource.time;
+            float songTime = (float)GetSongTime();
             float progress = music.length > 0 ? songTime / music.length : 0;
             DifficultyProfile profile = difficulties[difficultyIndex];
             float approach = profile.EvaluateApproachTime(progress);
@@ -266,15 +285,17 @@ namespace RhythmCurveDemo
                 if (!note.spawned || note.resolved || note.view == null) continue;
                 float remaining = note.time - songTime;
                 float t = Mathf.Clamp01(remaining / approach);
-                note.view.transform.position = new Vector3(LaneX(note.lane), .42f, Mathf.Lerp(hitZ, spawnZ, t));
+                note.view.transform.position = Vector3.Lerp(laneHitPoints[note.lane].position, laneSpawnPoints[note.lane].position, t);
                 if (songTime > note.time + hitWindow) ResolveMiss(note);
             }
 
-            if (Input.GetKeyDown(KeyCode.D)) Judge(0, songTime, hitWindow);
-            if (Input.GetKeyDown(KeyCode.K)) Judge(1, songTime, hitWindow);
+            float judgementTime = songTime + inputOffsetMs / 1000f;
+            if (Input.GetKeyDown(KeyCode.D)) Judge(0, judgementTime, hitWindow);
+            if (Input.GetKeyDown(KeyCode.K)) Judge(1, judgementTime, hitWindow);
 
-            if (!audioSource.isPlaying && songTime >= music.length - .05f)
+            if (songTime >= music.length)
             {
+                audioSource.Stop();
                 playing = false;
                 judgement = "FINISH";
                 judgementUntil = Time.unscaledTime + 99f;
@@ -284,10 +305,8 @@ namespace RhythmCurveDemo
         private void Spawn(RuntimeNote note, Color color)
         {
             note.spawned = true;
-            note.view = CreateBlock("Note", new Vector3(LaneX(note.lane), .42f, spawnZ), new Vector3(1.75f, .45f, .55f), color);
-            Renderer renderer = note.view.GetComponent<Renderer>();
-            renderer.material.EnableKeyword("_EMISSION");
-            renderer.material.SetColor("_EmissionColor", color * .38f);
+            note.view = AcquireNote();
+            note.view.Show(color, noteContainer, laneSpawnPoints[note.lane].position);
         }
 
         private void Judge(int lane, float songTime, float hitWindow)
@@ -306,7 +325,8 @@ namespace RhythmCurveDemo
             float error = Mathf.Abs(candidate.time - songTime);
             float perfectWindow = hitWindow * .42f;
             candidate.resolved = true;
-            if (candidate.view != null) Destroy(candidate.view);
+            ReleaseNote(candidate.view);
+            candidate.view = null;
             combo++;
             maxCombo = Mathf.Max(maxCombo, combo);
             if (error <= perfectWindow)
@@ -326,7 +346,8 @@ namespace RhythmCurveDemo
         private void ResolveMiss(RuntimeNote note)
         {
             note.resolved = true;
-            if (note.view != null) Destroy(note.view);
+            ReleaseNote(note.view);
+            note.view = null;
             combo = 0;
             misses++;
             ShowJudgement("MISS");
@@ -352,8 +373,7 @@ namespace RhythmCurveDemo
         {
             InitStyles();
             DrawTopBar();
-            if (!playing) DrawMenu();
-            else DrawPlayingHud();
+            if (!playing) DrawMenu(); else DrawPlayingHud();
         }
 
         private void DrawTopBar()
