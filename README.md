@@ -2,6 +2,10 @@
 
 这个仓库包含一个纯静态网页制谱工具，以及一个读取网页导出谱面的 Unity 音游 Demo。网页用于分析音乐、编辑节拍和三档轨道谱面；Unity Demo 用于本地试玩导出的谱面。
 
+**在线使用：[打开节拍工坊网页版](https://xmjgame.github.io/RhythmGame/)**
+
+网页通过 GitHub Pages 发布。音乐只在你的浏览器里处理；工程不会自动上传或保存到 GitHub。请按“保存完整工程”把 `.rhythm.json` 下载到本地，之后再用“打开工程文件”恢复。
+
 ## 目录
 
 - `dist/`：网页版节拍工坊的当前文件。部署静态网页时使用这里的 `index.html`、`app.js`、`styles.css`。
@@ -33,3 +37,5 @@
 把 `dist/` **里面的文件**复制到 IIS 网站实际指向的物理目录，让 `index.html` 位于网站根目录；不要额外嵌套一层 `dist`。更新后在浏览器按 `Ctrl+F5` 强制刷新一次。网页引用的脚本和样式带有版本参数，用于减少旧缓存造成的界面不一致。
 
 此仓库不包含 Unity 自动生成的 `Library/`、`Temp/`、`Builds/`、`Logs/` 等目录；这些目录由 Unity 在本地重新生成。
+
+`dist/` 更新并推送到 `main` 后，`.github/workflows/pages.yml` 会自动重新发布网页版。
